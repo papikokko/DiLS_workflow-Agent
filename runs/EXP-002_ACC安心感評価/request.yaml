@@ -1,0 +1,41 @@
+request_id: EXP-002
+request_title: ACC安心感・操作性評価
+received_date: "2026-05-07"
+requester: 開発部 鈴木さん
+status: 完了
+
+purpose: 新しいACCシステムが、ドライバーに安心して使ってもらえるか確認したい
+
+target_function: Adaptive Cruise Control (ACC)
+
+required_data:
+  - questionnaire
+  - reaction_log
+
+preferred_scenario:
+  - highway_follow
+  - merge
+
+open_questions:
+  - item: 評価する走行場面
+    detail: 高速追従・合流の2シナリオで実施（渋滞場面は次フェーズ）
+    resolved: true
+  - item: 安心感の測り方
+    detail: アンケート（5段階）をメインとし、介入操作回数も記録
+    resolved: true
+  - item: 被験者条件
+    detail: ACC経験者5名・未経験者5名の混合、20〜50代
+    resolved: true
+  - item: 合否判断基準
+    detail: アンケート平均4.0点以上、かつ介入操作3回以内
+    resolved: true
+
+ai_understanding:
+  summary: >-
+    ACCの安心感・操作性を評価する試験。高速追従・合流の2シナリオにて被験者10名（経験者5名・未経験者5名）で実施。
+    アンケート5段階評価＋介入操作回数で安心感を定量化。合否基準はアンケート平均4.0点以上かつ介入3回以内。
+    DiLS-03（Motion Platform搭載）が最適。過去テストTEST-2025-031が類似事例。
+  recommended_past_tests:
+    - TEST-2025-031
+    - TEST-2025-008
+  recommended_dils: DiLS-03

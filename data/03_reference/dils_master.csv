@@ -1,0 +1,6 @@
+dils_id,name,features,eye_tracker,hmi_display,motion_platform,vr_display,high_speed_log,external_if,status,suitable_tests,notes
+DiLS-01,標準構成,基本的なDSシステム,なし,標準,なし,なし,なし,なし,稼働可能,基本機能確認・ドライバビリティ評価,汎用的に使える標準構成
+DiLS-02,HMI評価特化,Eye Tracker・HMI表示制御・視線ログ取得,あり,高精細HMI,なし,なし,なし,なし,稼働可能,HMI視認性評価・反応時間計測・表示理解度評価,今回の案件（EXP-001）の第一候補
+DiLS-03,Motion Platform搭載,動感提示・操舵フィードバック,なし,標準,6DOF Motion Platform,なし,なし,なし,稼働可能,操舵感評価・乗り心地評価・感性評価,振動・揺れを伴う評価向け
+DiLS-04,VR・広視野対応,広視野ディスプレイ・VRヘッドセット連携,なし,広視野,なし,VRヘッドセット,なし,なし,整備中,空間価値評価・XR体験評価・視野角評価,現在整備中のため次回から利用可能
+DiLS-05,高速ログ・外部連携,高速データ取得・外部システム接続,なし,標準,なし,なし,1kHz対応,あり,稼働可能,ADAS評価・警報タイミング評価・制御系評価,制御システムとの連携実験向け

@@ -1,0 +1,7 @@
+test_id,title,function_area,required_data,scenarios,dils_used,participants,date,outcome,reusable_items
+TEST-2025-014,HMI警告表示の視認性評価,HMI,reaction_time/gaze_log/questionnaire,city/highway,DiLS-02,12,2025-03,合格基準達成,シナリオ・アンケート設問・DiLS設定
+TEST-2025-022,ADAS警報タイミング評価,ADAS,reaction_time/system_log/gaze_log,highway,DiLS-05,10,2025-05,一部要改善,警報タイミング閾値設定・ログ取得設定
+TEST-2025-031,ステアリング反力の感性評価,steering/haptics,questionnaire/feeling_log/motion_log,city,DiLS-03,15,2025-07,合格基準達成,感性評価アンケート・Motion Platform設定
+TEST-2025-057,夜間走行時の表示理解度評価,HMI,questionnaire/gaze_log,night,DiLS-02,10,2025-10,合格基準達成,夜間シナリオ・HMI輝度設定・理解度評価アンケート
+TEST-2025-068,インパネ情報レイアウト評価,HMI/UX,questionnaire/eye_tracking/task_time,city,DiLS-02,12,2025-11,改善提案あり,タスク時間計測手法・Eye Tracker設定
+TEST-2024-098,高速道路合流時の判断支援評価,ADAS/HMI,reaction_time/system_log/questionnaire,highway/merge,DiLS-05,8,2024-12,要追加評価,合流判断シナリオ・外部システム連携設定

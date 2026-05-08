@@ -1,0 +1,32 @@
+request_id: EXP-001
+request_title: HMI警告表示の視認性評価
+received_date: "2026-05-07"
+requester: DS運営チーム
+
+purpose: 新しい警告表示が走行中のドライバーに認識されやすいか確認したい
+
+target_function: HMI warning display
+
+what_to_judge:
+  - 警告表示に気づくまでの時間
+  - 表示内容を理解できるか
+  - 表示タイミングが遅すぎないか
+  - 市街地と高速道路で認識性に差があるか
+
+required_data:
+  - reaction_time
+  - gaze_log
+  - questionnaire
+  - hearing_comment
+
+preferred_scenario:
+  - city
+  - highway
+
+open_questions:
+  - item: 被験者数
+    detail: 何名必要かが未確定
+  - item: 合否判断基準
+    detail: 反応時間の閾値・理解度の合格ラインが未定
+  - item: シナリオ優先度
+    detail: 市街地と高速道路のどちらを優先するか未決定

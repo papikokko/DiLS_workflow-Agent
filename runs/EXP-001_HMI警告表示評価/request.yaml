@@ -1,0 +1,37 @@
+request_id: EXP-001
+request_title: HMI警告表示の視認性評価
+received_date: "2026-05-07"
+requester: DS運営チーム
+status: 完了
+
+purpose: 新しい警告表示が走行中のドライバーに認識されやすいか確認したい
+
+target_function: HMI警告表示
+
+required_data:
+  - reaction_time
+  - gaze_log
+  - questionnaire
+
+preferred_scenario:
+  - city
+  - highway
+
+open_questions:
+  - item: 被験者数
+    detail: 12名で実施
+    resolved: true
+  - item: 合否判断基準
+    detail: 反応時間2秒以内・アンケート平均4.0点以上
+    resolved: true
+  - item: シナリオ優先度
+    detail: 市街地・高速道路の両方を実施
+    resolved: true
+
+ai_understanding:
+  summary: HMI警告表示の視認性を反応時間・視線ログ・アンケートで評価。DiLS-02（Eye
+    Tracker搭載）を使用し、市街地・高速道路の2シナリオで12名に実施。全ステップ完了。
+  recommended_past_tests:
+    - TEST-2025-014
+    - TEST-2025-057
+  recommended_dils: DiLS-02
