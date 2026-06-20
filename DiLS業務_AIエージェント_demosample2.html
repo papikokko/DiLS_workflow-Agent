@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DS業務AIエージェント — デモ v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;background:#111}
+#app{display:flex;flex-direction:column;height:100vh}
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ── LEFT: Chat panel (unchanged) ── */
+#chat-panel{width:44%;min-width:320px;display:flex;flex-direction:column;background:#1c1c1c;border-right:1px solid #262626}
+#chat-header{padding:11px 16px;background:#1c1c1c;border-bottom:1px solid #262626;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.claude-logo{width:29px;height:29px;border-radius:50%;background:linear-gradient(135deg,#d97757,#c05c3a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+.ch-title{font-size:13px;font-weight:600;color:#e0e0e0}
+.ch-sub{font-size:10px;color:#555;margin-top:1px}
+.ch-live{margin-left:auto;font-size:10px;padding:2px 8px;border-radius:10px;background:#1a2a1a;border:1px solid #2a4a2a;color:#5a9a5a;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.live-dot{width:5px;height:5px;border-radius:50%;background:#5a9a5a;animation:blink-l 1.4s ease-in-out infinite}
+@keyframes blink-l{0%,100%{opacity:1}50%{opacity:.3}}
+#chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+#chat-messages::-webkit-scrollbar{width:3px}
+#chat-messages::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+.msg-system{align-self:center;color:#ccc;font-size:13px;padding:6px 14px;background:#252525;border-radius:8px;border:1px solid #383838;max-width:90%;text-align:center;line-height:1.5}
+.msg-row-user{display:flex;justify-content:flex-end}
+.bubble-user{max-width:72%;background:#2e2e2e;border:1px solid #3a3a3a;color:#ddd;padding:9px 13px;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.65;word-break:break-word}
+.msg-row-claude{display:flex;gap:9px;align-items:flex-start}
+.av{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,#d97757,#c05c3a);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;margin-top:2px}
+.bubble-claude{max-width:90%;color:#ccc;font-size:13px;line-height:1.75;word-break:break-word}
+.bubble-claude strong{color:#e8e8e8;font-weight:600}
+.bubble-claude code{background:#242424;border:1px solid #363636;padding:1px 5px;border-radius:4px;font-size:11px;color:#d4976a;font-family:'Consolas','Courier New',monospace}
+.typing-row{display:flex;gap:9px;align-items:flex-start}
+.typing-dots{display:flex;gap:5px;align-items:center;padding:13px 2px}
+.typing-dots span{width:7px;height:7px;border-radius:50%;background:#444;animation:bounce-d 1.3s ease-in-out infinite}
+.typing-dots span:nth-child(2){animation-delay:.18s}.typing-dots span:nth-child(3){animation-delay:.36s}
+@keyframes bounce-d{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-7px);opacity:1}}
+.cur{display:inline-block;width:2px;height:.85em;background:#aaa;margin-left:1px;vertical-align:middle;animation:blink-c .65s step-end infinite}
+@keyframes blink-c{0%,100%{opacity:1}50%{opacity:0}}
+.thinking-row{display:flex;gap:9px;align-items:flex-start}
+.thinking-wrap{max-width:90%}
+.thinking-hdr{display:flex;align-items:center;gap:7px;padding:8px 12px 6px;background:#1e1e1e;border:1px solid #2d2d2d;border-radius:8px 8px 0 0;cursor:pointer;user-select:none}
+.t-spin{width:11px;height:11px;border-radius:50%;border:2px solid #333;border-top-color:#777;animation:spin .8s linear infinite;flex-shrink:0}
+.t-spin.done{animation:none;border-color:#4a7a4a;border-top-color:#4a7a4a}
+@keyframes spin{to{transform:rotate(360deg)}}
+.t-lbl{font-size:11px;color:#555;flex:1}
+.t-lbl.done{color:#4a6a4a}
+.t-toggle{font-size:9px;color:#444;transition:transform .25s}
+.thinking-wrap.t-open .t-toggle{transform:rotate(180deg)}
+.thinking-body{max-height:0;overflow:hidden;transition:max-height .3s ease;background:#1a1a1a;border:1px solid #2a2a2a;border-top:none;border-radius:0 0 8px 8px}
+.thinking-wrap.t-open .thinking-body{max-height:200px}
+.thinking-steps{padding:7px 12px 9px;display:flex;flex-direction:column;gap:5px}
+.t-step{display:flex;align-items:center;gap:7px;font-size:11px;color:#555;opacity:0;transform:translateY(3px)}
+.t-step.t-show{animation:step-in .25s ease forwards}
+.t-step.t-done{color:#4a7a4a}
+@keyframes step-in{to{opacity:1;transform:translateY(0)}}
+.t-step-ico{width:13px;flex-shrink:0;text-align:center}
+.t-step-sp{width:10px;height:10px;border-radius:50%;border:1.5px solid #333;border-top-color:#666;animation:spin .7s linear infinite;flex-shrink:0}
+
+/* ── RIGHT: Dashboard ── */
+#dash-panel{flex:1;display:flex;flex-direction:column;background:#f0f2f6;overflow:hidden}
+
+/* Streamlit topbar */
+#dash-header{background:#fff;border-bottom:1px solid #e2e5ea;flex-shrink:0}
+.st-topbar{height:3.5rem;padding:0 1rem;display:flex;align-items:center;gap:10px}
+.st-logo{width:24px;height:24px;border-radius:4px;background:#ff4b4b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.st-appname{font-size:13px;font-weight:600;color:#262730}
+.st-url{margin-left:auto;font-size:10px;color:#bbb;font-family:'Consolas',monospace;border:1px solid #e8e8e8;border-radius:4px;padding:2px 7px;background:#fafafa}
+
+/* Sidebar + main layout */
+.st-layout{display:flex;flex:1;overflow:hidden}
+.st-sidebar{width:200px;background:#fff;border-right:1px solid #e2e5ea;flex-shrink:0;overflow-y:auto;padding:12px 10px}
+.st-sidebar::-webkit-scrollbar{width:3px}.st-sidebar::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
+.st-sidebar h3{font-size:13px;font-weight:700;color:#333;margin-bottom:10px}
+.sidebar-radio{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:6px;font-size:12px;color:#333;cursor:pointer;background:#f0f4ff;border:1px solid #c0d0ff;margin-bottom:6px}
+.sidebar-radio .rdot{width:12px;height:12px;border-radius:50%;background:#4c7cf3;flex-shrink:0}
+.sidebar-ref{margin-top:12px}
+.sidebar-ref-title{font-size:11px;font-weight:700;color:#555;margin-bottom:5px}
+.sidebar-ref-item{font-size:10.5px;color:#888;padding:4px 0;cursor:pointer;display:flex;align-items:center;gap:5px;border-bottom:1px solid #f5f5f5}
+.st-divider{border:none;border-top:1px solid #eee;margin:8px 0}
+
+/* ── NEW: Main content area with sticky progress + tabs ── */
+.st-main-new{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* Progress area — full mode (default) */
+#progress-area{
+  flex-shrink:0;background:#fff;border-bottom:2px solid #e2e5ea;
+  padding:14px 18px 10px;transition:padding .3s ease;
+}
+
+/* Full mode content */
+.progress-full{display:block;transition:opacity .25s}
+.progress-full .case-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.case-title{font-size:1.3rem;font-weight:700;color:#1a1a2e}
+.case-caption{font-size:11px;color:#888;margin-bottom:8px}
+#status-badge{font-size:13px;font-weight:700}
+.prog-bar-wrap{margin-bottom:8px}
+.prog-bar-bg{height:7px;background:#e8e8e8;border-radius:4px;overflow:hidden}
+.prog-bar-fill{height:100%;background:#ff4b4b;border-radius:4px;transition:width .6s ease;width:0%}
+.step-count-txt{font-size:11px;color:#888;margin:3px 0 10px}
+
+/* Chip row (inside progress-full) */
+.chip-row{display:flex;gap:0;align-items:stretch;margin-bottom:4px}
+.chip-arrow{display:flex;align-items:center;color:#bbb;font-size:14px;padding:0 2px}
+.step-chip{flex:1;border-radius:8px;padding:8px 4px;text-align:center;opacity:.45;background:#f0f0f0;border:2px solid #ddd;transition:all .4s;cursor:default}
+.step-chip.done{opacity:1;background:#d4edda;border-color:#28a745;cursor:pointer}
+.step-chip.done:hover{background:#c3e6cb}
+.step-chip.active-now{opacity:1;background:#fff3cd;border-color:#ffc107;animation:chip-pulse 1.5s ease-in-out infinite;cursor:default}
+@keyframes chip-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,193,7,.2)}50%{box-shadow:0 0 0 5px rgba(255,193,7,0)}}
+.chip-icon{font-size:18px;line-height:1.2}
+.chip-label{font-size:10.5px;font-weight:700;margin:2px 0 1px;color:#333}
+.chip-desc{font-size:9px;color:#777;line-height:1.3;margin-bottom:2px}
+.chip-status-txt{font-size:9.5px}
+.chip-status-txt.ok{color:#28a745;font-weight:700}
+.chip-status-txt.ng{color:#aaa}
+
+/* Compact mode (when a tab is open) */
+.progress-compact{display:none;align-items:center;gap:8px;height:36px}
+.compact-title{font-size:11px;font-weight:700;color:#555;white-space:nowrap}
+.compact-prog-wrap{width:80px;flex-shrink:0}
+.compact-prog-bg{height:5px;background:#e8e8e8;border-radius:3px;overflow:hidden}
+.compact-prog-fill{height:100%;background:#ff4b4b;border-radius:3px;transition:width .6s ease;width:0%}
+.compact-steps{display:flex;gap:4px;align-items:center;flex:1;overflow:hidden}
+.compact-step{display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0;cursor:default;opacity:.4;transition:all .3s}
+.compact-step.done{opacity:1;cursor:pointer}
+.compact-step.done:hover .compact-step-chip{background:#4a9a4a}
+.compact-step.active-now{opacity:1}
+.compact-step-chip{font-size:14px;width:28px;height:28px;border-radius:6px;background:#2a2a2a;border:1.5px solid #444;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.compact-step.done .compact-step-chip{background:#3a7a3a;border-color:#5cd65c;box-shadow:0 0 8px rgba(92,214,92,.7)}
+.compact-step.active-now .compact-step-chip{background:#4a3010;border-color:#ffc107;box-shadow:0 0 8px rgba(255,193,7,.6);animation:chip-pulse 1.5s ease-in-out infinite}
+.compact-step.selected .compact-step-chip{background:#1e3a6a;border-color:#7ba8f0;border-width:2px;box-shadow:0 0 8px rgba(124,168,240,.7)}
+.compact-step-label{font-size:8.5px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40px;text-align:center}
+.compact-step.done .compact-step-label{color:#5cd65c;font-weight:600}
+.compact-step.selected .compact-step-label{color:#7ba8f0;font-weight:700}
+.compact-status{font-size:10px;color:#888;white-space:nowrap;flex-shrink:0}
+
+/* When tab is open → switch to compact */
+#progress-area.tab-open{padding:8px 18px}
+#progress-area.tab-open .progress-full{display:none}
+#progress-area.tab-open .progress-compact{display:flex}
+
+/* ── Tab bar ── */
+#tab-bar{
+  display:flex;background:#fff;border-bottom:2px solid #e2e5ea;
+  flex-shrink:0;overflow-x:auto;
+}
+#tab-bar::-webkit-scrollbar{height:3px}
+#tab-bar::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
+
+.tab-item{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 18px;font-size:12.5px;font-weight:600;
+  color:#bbb;cursor:not-allowed;white-space:nowrap;
+  border-bottom:3px solid transparent;transition:all .2s;
+  flex-shrink:0;position:relative;
+}
+.tab-item .tab-icon{font-size:15px}
+.tab-item .tab-badge{
+  font-size:9px;padding:1px 5px;border-radius:8px;
+  background:#e8e8e8;color:#aaa;margin-left:2px;
+}
+.tab-item.done{color:#555;cursor:pointer}
+.tab-item.done:hover{background:#f5f7ff;color:#333}
+.tab-item.done .tab-badge{background:#d4edda;color:#28a745}
+.tab-item.active-now{color:#ffc107;cursor:default;animation:tab-pulse 1.5s ease-in-out infinite}
+.tab-item.active-now .tab-badge{background:#fff3cd;color:#856404}
+@keyframes tab-pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.tab-item.selected{color:#4c7cf3;border-bottom-color:#4c7cf3;background:#fff;cursor:pointer}
+.tab-item.selected .tab-badge{background:#dbeafe;color:#1d4ed8}
+
+/* ── Tab content area ── */
+#tab-content-area{
+  flex:1;overflow-y:auto;display:none;
+  background:#f0f2f6;
+}
+#tab-content-area.visible{display:block}
+#tab-content-area::-webkit-scrollbar{width:4px}
+#tab-content-area::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+
+.tab-panel{display:none;padding:18px 20px}
+.tab-panel.active{display:block}
+
+/* ── Content styles (same as before) ── */
+.md-content{font-size:12.5px;color:#333;line-height:1.7}
+.md-content h1{font-size:16px;font-weight:700;margin:0 0 10px;color:#1a1a2e}
+.md-content h2{font-size:14px;font-weight:700;margin:12px 0 6px;color:#1a1a2e;border-bottom:1px solid #e8e8e8;padding-bottom:4px}
+.md-content h3{font-size:13px;font-weight:700;margin:10px 0 5px;color:#333}
+.md-content p{margin-bottom:6px}
+.md-content strong{font-weight:700;color:#1a1a2e}
+.md-content code{background:#f0f0f0;border:1px solid #ddd;padding:1px 5px;border-radius:3px;font-size:11px;font-family:'Consolas',monospace;color:#555}
+.md-content table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}
+.md-content th{background:#f8f9fa;font-weight:700;color:#333;padding:7px 10px;border:1px solid #dee2e6;text-align:left;font-size:11.5px}
+.md-content td{padding:6px 10px;border:1px solid #dee2e6;color:#333;vertical-align:top}
+.md-content tr:nth-child(even) td{background:#fafafa}
+.md-content ul{padding-left:18px;margin-bottom:6px}
+.md-content li{margin-bottom:3px}
+.card{background:#fff;border-radius:8px;border:1px solid #e2e5ea;padding:16px;margin-bottom:12px}
+.card-title{font-size:13px;font-weight:700;color:#333;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.placeholder{color:#aaa;font-size:12px;font-style:italic;padding:20px;text-align:center;background:#fafafa;border-radius:6px;border:1px dashed #ddd}
+
+/* Sub-tabs (for STEP3) */
+.sub-tab-bar{display:flex;border-bottom:1px solid #dee2e6;margin-bottom:14px;background:#f8f9fa;border-radius:6px 6px 0 0;overflow:hidden}
+.sub-tab-item{padding:8px 14px;font-size:12px;font-weight:600;color:#888;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.sub-tab-item:hover{background:#f0f0f0;color:#555}
+.sub-tab-item.active{color:#4c7cf3;border-bottom-color:#4c7cf3;background:#fff}
+.sub-tab-panel{display:none}
+.sub-tab-panel.active{display:block}
+
+/* Chat / dialog display inside tabs */
+.dialog-log{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.dialog-row{display:flex;gap:10px;align-items:flex-start}
+.dialog-row.user-row{flex-direction:row-reverse}
+.dialog-speaker{font-size:10px;font-weight:700;color:#888;white-space:nowrap;padding-top:4px;min-width:52px;text-align:right}
+.dialog-row.user-row .dialog-speaker{text-align:left}
+.dialog-bubble{max-width:85%;padding:9px 13px;border-radius:12px;font-size:12.5px;line-height:1.65;word-break:break-word}
+.dialog-bubble.ai{background:#f0f4ff;border:1px solid #d0deff;color:#333}
+.dialog-bubble.user{background:#f8f8f8;border:1px solid #e0e0e0;color:#444}
+.dialog-bubble.operator{background:#fff8e6;border:1px solid #ffd966;color:#444}
+.dialog-bubble.requester{background:#f0fff4;border:1px solid #b7ebc0;color:#444}
+.dialog-bubble strong{font-weight:700;color:#1a1a2e}
+.section-label{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #eee}
+.data-ref{background:#f8f9fa;border:1px solid #e2e5ea;border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11.5px}
+.data-ref-title{font-size:11px;font-weight:700;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.tag{display:inline-block;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:600;margin:2px}
+.tag-risk-high{background:#fee2e2;color:#dc2626}
+.tag-risk-mid{background:#fef3c7;color:#d97706}
+.tag-risk-low{background:#d1fae5;color:#059669}
+
+/* ── Player bar (unchanged) ── */
+#player{height:50px;background:#0d0d0d;border-top:1px solid #1d1d1d;display:flex;align-items:center;padding:0 18px;gap:12px;flex-shrink:0}
+#tl-track{flex:1;height:3px;background:#252525;border-radius:2px;cursor:pointer;position:relative;transition:height .15s}
+#tl-track:hover{height:5px}
+#tl-fill{height:100%;background:#ff4b4b;border-radius:2px;width:0%;pointer-events:none}
+#tl-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#ff4b4b;pointer-events:none;opacity:0;transition:opacity .2s;left:0%}
+#tl-track:hover #tl-thumb{opacity:1}
+.pb{background:none;border:none;color:#777;font-size:15px;cursor:pointer;padding:4px;border-radius:5px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;flex-shrink:0}
+.pb:hover{color:#ddd;background:#1a1a1a}
+.pb.pb-on{color:#ff4b4b}
+#play-icon{font-size:17px}
+#step-ind{font-size:10.5px;color:#4a4a4a;white-space:nowrap;min-width:55px}
+#time-ind{font-size:10.5px;color:#4a4a4a;white-space:nowrap;min-width:68px;text-align:right}
+.spd-g{display:flex;gap:3px;flex-shrink:0}
+.spd-b{background:#181818;border:1px solid #282828;color:#555;font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;cursor:pointer;transition:all .15s}
+.spd-b:hover:not(.spd-on){background:#222;color:#888}
+.spd-b.spd-on{background:#ff4b4b;color:#fff;border-color:#ff4b4b}
+
+/* ── Dark theme for dashboard ── */
+#dash-panel.dark { background:#1a1a1a; }
+#dash-panel.dark #dash-header { background:#222; border-color:#333; }
+#dash-panel.dark .st-topbar { border-color:#333; }
+#dash-panel.dark .st-appname { color:#ccc; }
+#dash-panel.dark .st-url { background:#1a1a1a; border-color:#444; color:#666; }
+#dash-panel.dark .st-sidebar { background:#222; border-color:#333; }
+#dash-panel.dark .st-sidebar h3 { color:#ccc; }
+#dash-panel.dark .sidebar-radio { background:#2a2a2a; border-color:#444; color:#ccc; }
+#dash-panel.dark .sidebar-ref-item { color:#666; border-color:#333; }
+#dash-panel.dark .st-divider { border-color:#333; }
+#dash-panel.dark #progress-area { background:#222; border-color:#333; }
+#dash-panel.dark .case-title { color:#e0e0e0; }
+#dash-panel.dark .case-caption { color:#666; }
+#dash-panel.dark .prog-bar-bg { background:#333; }
+#dash-panel.dark .step-chip { background:#2a2a2a; border-color:#444; }
+#dash-panel.dark .step-chip .chip-label { color:#ccc; }
+#dash-panel.dark .step-chip .chip-desc { color:#666; }
+#dash-panel.dark .step-chip.done { background:#1a2e1a; border-color:#28a745; }
+#dash-panel.dark .compact-prog-bg { background:#333; }
+#dash-panel.dark .compact-step-chip { background:#2a2a2a; border-color:#444; }
+#dash-panel.dark .compact-step-label { color:#666; }
+#dash-panel.dark #tab-bar { background:#222; border-color:#333; }
+#dash-panel.dark .tab-item { color:#555; }
+#dash-panel.dark .tab-item.done { color:#aaa; }
+#dash-panel.dark .tab-item.done:hover { background:#2a2a2a; color:#ccc; }
+#dash-panel.dark .tab-item.selected { color:#7ba8f0; border-bottom-color:#7ba8f0; background:#222; }
+#dash-panel.dark #tab-content-area { background:#1a1a1a; }
+#dash-panel.dark .card { background:#252525; border-color:#333; }
+#dash-panel.dark .card-title { color:#ccc; }
+#dash-panel.dark .sub-tab-bar { background:#2a2a2a; border-color:#333; }
+#dash-panel.dark .sub-tab-item { color:#666; }
+#dash-panel.dark .sub-tab-item.active { color:#7ba8f0; border-bottom-color:#7ba8f0; background:#222; }
+#dash-panel.dark .sub-tab-panel { color:#ccc; }
+#dash-panel.dark .md-content { color:#ccc; }
+#dash-panel.dark .md-content h1,
+#dash-panel.dark .md-content h2 { color:#e0e0e0; border-color:#333; }
+#dash-panel.dark .md-content th { background:#2a2a2a; color:#ccc; border-color:#444; }
+#dash-panel.dark .md-content td { border-color:#333; color:#ccc; }
+#dash-panel.dark .md-content tr:nth-child(even) td { background:#222; }
+#dash-panel.dark .step-count-txt { color:#666; }
+#dash-panel.dark #status-badge { color:#ccc; }
+
+/* テーマ切り替えボタン */
+#theme-toggle {
+  background:none;border:1px solid #e0e0e0;color:#555;
+  font-size:14px;cursor:pointer;padding:3px 8px;border-radius:5px;
+  transition:all .2s;margin-left:auto;
+}
+#theme-toggle:hover { background:#f0f0f0; }
+#dash-panel.dark #theme-toggle { border-color:#444;color:#aaa; }
+#dash-panel.dark #theme-toggle:hover { background:#2a2a2a; }
+
+
+/* 参照データセクション */
+.ref-section{margin-top:16px;border-top:1px solid #333;padding-top:12px}
+.ref-section-title{font-size:11px;font-weight:700;color:#777;margin-bottom:8px;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.ref-section-title:hover{color:#aaa}
+.ref-section-body{display:none}
+.ref-section.open .ref-section-body{display:block}
+.ref-file-item{font-size:11px;color:#888;padding:4px 8px;background:#1e1e1e;border-radius:4px;margin-bottom:4px;font-family:'Consolas',monospace;border:1px solid #2a2a2a}
+.ref-file-item span{color:#5a9a8a}
+
+/* 全完了ボタン */
+.pb-skip{background:none;border:none;color:#777;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:5px;height:30px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;flex-shrink:0;white-space:nowrap;font-weight:600}
+.pb-skip:hover{color:#ddd;background:#1a1a1a}
+
+
+
+/* ─ 欠落CSS補完 ─ */
+#dataflow-screen{display:none;flex:1;overflow:auto;padding:20px;background:#111;}
+#dataflow-screen.visible{display:block;}
+#dataflow-screen::-webkit-scrollbar{height:4px;width:4px}
+#dataflow-screen::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+
+.view-btn{font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;cursor:pointer;background:none;border:1px solid #e0e0e0;color:#888;transition:all .2s;white-space:nowrap;}
+.view-btn:hover{background:#f0f0f0;color:#333;}
+.view-btn.active{background:#1F4E79;border-color:#1F4E79;color:#fff;}
+#dash-panel.dark .view-btn{border-color:#444;color:#666;}
+#dash-panel.dark .view-btn.active{background:#2a4a7a;border-color:#4a7abf;color:#fff;}
+
+/* データフロー CSS */
+.df-flow2{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:12px}
+.df-block{width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.df-block-header{text-align:center;padding:8px;background:#252535;border-radius:8px 8px 0 0;border:1px solid #333;border-bottom:none;font-size:11px;font-weight:700;color:#e0e0e0}
+.df-block-header .df-step-icon{font-size:20px;display:block;margin-bottom:3px}
+.df-zone{border-radius:6px;padding:7px 9px;border:1px solid #2a2a2a;font-size:10px}
+.df-zone-label{font-size:9px;font-weight:700;letter-spacing:.5px;margin-bottom:5px;display:flex;align-items:center;gap:4px}
+.df-zone.in-zone{background:#0d1526;border-color:#1a3a6a}
+.df-zone.in-zone .df-zone-label{color:#7ba8f0}
+.df-zone.out-zone{background:#0d1f0d;border-color:#1a4a1a}
+.df-zone.out-zone .df-zone-label{color:#5cd65c}
+.df-zone.ai-zone{background:#120d1e;border-color:#3a2a5a}
+.df-zone.ai-zone .df-zone-label{color:#cc88ff}
+.df-zone.gate-zone{background:#1a1000;border-color:#4a3a00}
+.df-zone.gate-zone .df-zone-label{color:#ffc107}
+.df-chip{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-family:'Consolas',monospace;padding:2px 6px;border-radius:4px;margin:2px 0;line-height:1.4}
+.df-chip.master{background:#0a1525;color:#7ba8f0;border:1px solid #1a3a6a}
+.df-chip.tx{background:#0a1a0a;color:#5cd65c;border:1px solid #1a4a1a}
+.df-chip.new-tx{background:#0a1a0a;color:#88ff88;border:1px solid #2a6a2a;font-weight:700}
+.df-chip.person{background:#1a1500;color:#ffd080;border:1px solid #4a3a00}
+.df-ai-item{color:#aa88cc;padding:1px 0;font-size:9.5px;display:flex;align-items:flex-start;gap:3px;line-height:1.5}
+.df-ai-item::before{content:"▸";color:#7a5a9a;flex-shrink:0;margin-top:1px}
+.df-gate-item{color:#ffc107;font-size:9.5px;padding:1px 0;display:flex;align-items:flex-start;gap:3px;line-height:1.5}
+.df-gate-item::before{content:"⏸";flex-shrink:0;font-size:9px}
+.df-connector{display:flex;flex-direction:column;align-items:center;justify-content:center;width:44px;flex-shrink:0;padding-top:50px}
+.df-connector-arrow{color:#555;font-size:20px;line-height:1}
+.df-connector-files{display:flex;flex-direction:column;gap:2px;margin-top:4px;align-items:center}
+.df-connector-file{font-size:8.5px;font-family:'Consolas',monospace;color:#3a8a3a;background:#0a1a0a;border:1px solid #1a3a1a;border-radius:3px;padding:1px 5px;white-space:nowrap}
+.df-legend2{display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:#151515;border-radius:6px;border:1px solid #222}
+.df-legend2-item{display:flex;align-items:center;gap:6px;font-size:10px;color:#888}
+.df-legend2-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.df-master2{margin-bottom:16px;padding:10px 14px;background:#0d1526;border:1px solid #1a3a6a;border-radius:8px}
+.df-master2-title{font-size:10px;font-weight:700;color:#7ba8f0;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.df-master2-files{display:flex;gap:6px;flex-wrap:wrap}
+.df-master2-file{font-size:9.5px;font-family:'Consolas',monospace;color:#7ba8f0;background:#080f1e;border:1px solid #1a3a6a;border-radius:4px;padding:3px 8px}
+.df-cycle{margin-top:14px;padding:10px 14px;background:#0d1a0d;border:1px solid #1a4a1a;border-radius:8px;font-size:11px;color:#5cd65c;line-height:1.7}
+
+/* ステップバナー */
+.step-banner{display:flex;align-items:center;gap:10px;margin:16px 0 8px;padding:8px 14px;background:linear-gradient(90deg,#1a2a3a,#111);border-left:3px solid #7ba8f0;border-radius:0 6px 6px 0;font-size:12px;font-weight:700;color:#7ba8f0}
+.step-banner .banner-icon{font-size:18px}
+.step-banner .banner-sub{font-size:10px;color:#555;font-weight:400;margin-left:auto}
+
+/* 参照データセクション */
+.ref-section{margin-top:16px;border-top:1px solid #333;padding-top:12px}
+.ref-section-title{font-size:11px;font-weight:700;color:#777;margin-bottom:8px;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.ref-section-title:hover{color:#aaa}
+.ref-section-body{display:none}
+.ref-section.open .ref-section-body{display:block}
+.ref-file-item{font-size:11px;color:#888;padding:4px 8px;background:#1e1e1e;border-radius:4px;margin-bottom:4px;font-family:'Consolas',monospace;border:1px solid #2a2a2a}
+.ref-file-item span{color:#5a9a8a}
+
+/* タイムラインマーカー */
+.tl-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;background:#ff4b4b;border:2px solid #888;border-radius:50%;cursor:pointer;z-index:10;transition:all .15s}
+.tl-marker:hover{width:15px;height:15px;border-color:#fff;background:#ff7777}
+.tl-marker-tooltip{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#111;color:#eee;font-size:10px;padding:3px 7px;border-radius:4px;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;border:1px solid #333}
+.tl-marker:hover .tl-marker-tooltip{opacity:1}
+
+/* 全完了ボタン */
+.pb-skip{background:none;border:none;color:#777;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:5px;height:30px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;flex-shrink:0;white-space:nowrap;font-weight:600}
+.pb-skip:hover{color:#ddd;background:#1a1a1a}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="main">
+    <div id="chat-panel">
+      <div id="chat-header">
+        <div class="claude-logo">C</div>
+        <div>
+          <div class="ch-title">AI — DS業務AIエージェント</div>
+          <div class="ch-sub">高度推論モード · 生成AI</div>
+        </div>
+        <div class="ch-live"><div class="live-dot"></div>EXP-003</div>
+      </div>
+      <div id="chat-messages"></div>
+    </div>
+    <div id="dash-panel">
+      <div id="dash-header">
+        <div class="st-topbar">
+          <div class="st-logo">S</div>
+          <div class="st-appname">DS業務 AIエージェント ダッシュボード</div>
+          <div class="st-url">localhost:8501</div>
+          <div style="display:flex;gap:4px;margin-left:auto;align-items:center;">
+            <button class="view-btn active" id="btn-dashboard" onclick="switchView('dashboard')">🖥 ダッシュボード</button>
+            <button class="view-btn" id="btn-dataflow" onclick="switchView('dataflow')">📊 データフロー</button>
+            <button id="theme-toggle" onclick="toggleTheme()" title="ダーク/ライト切り替え">🌙</button>
+          </div>
+        </div>
+      </div>
+      <div class="st-layout">
+        <div class="st-sidebar">
+          <h3>📁 案件</h3>
+          <div class="sidebar-radio"><div class="rdot"></div>🟡 EXP-003_音声UI評価</div>
+          <div class="sidebar-radio" style="background:#f8f8f8;border-color:#e0e0e0;color:#aaa"><div class="rdot" style="background:#ccc"></div>🟢 EXP-002_ACC評価</div>
+          <div class="sidebar-radio" style="background:#f8f8f8;border-color:#e0e0e0;color:#aaa"><div class="rdot" style="background:#ccc"></div>🟢 EXP-001_警告表示</div>
+          <hr class="st-divider">
+          <div class="sidebar-ref">
+            <div class="sidebar-ref-title">📂 参照データ</div>
+            <div class="sidebar-ref-item">📄 DiLSマスタ</div>
+            <div class="sidebar-ref-item">📄 過去テスト一覧</div>
+            <div class="sidebar-ref-item">📄 ペルソナデータ</div>
+            <div class="sidebar-ref-item">📄 市場の声</div>
+            <div class="sidebar-ref-item">📄 チェックリスト</div>
+          </div>
+          <hr class="st-divider">
+          <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:5px">🎬 デモ操作</div>
+          <div style="padding:5px 4px;background:#f8f9fa;border-radius:5px;text-align:center;font-size:11px;color:#666;border:1px solid #e0e0e0;cursor:pointer">🔁 デモをリセット</div>
+        </div>
+        <div class="st-main-new">
+          <div id="progress-area">
+            <div class="progress-full">
+              <div class="case-header">
+                <div>
+                  <div class="case-title">EXP-003　車載音声UIアシスタント評価</div>
+                  <div class="case-caption">音声UIが様々なドライバー・騒音環境で実用的に機能するか確認する</div>
+                </div>
+                <div id="status-badge"><span style="color:#ffc107">🟡</span> 受付済み（確認中）</div>
+              </div>
+              <div class="prog-bar-wrap">
+                <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill"></div></div>
+              </div>
+              <div class="step-count-txt" id="step-count-txt">0 / 5 ステップ完了</div>
+              <div class="chip-row" id="chip-row"></div>
+            </div>
+            <div class="progress-compact">
+              <span class="compact-title">EXP-003</span>
+              <div class="compact-prog-wrap">
+                <div class="compact-prog-bg"><div class="compact-prog-fill" id="compact-fill"></div></div>
+              </div>
+              <div class="compact-steps" id="compact-steps"></div>
+              <span class="compact-status" id="compact-status">0 / 5</span>
+            </div>
+          </div>
+          <div id="tab-bar"></div>
+          <div id="tab-content-area"></div>
+        </div>
+      </div>
+      <div id="dataflow-screen"></div>
+    </div>
+  </div>
+  <div id="player">
+    <button class="pb" id="restart-btn">↺</button>
+    <button class="pb-skip" id="skip-btn" title="全ステップを即完了">⏭ 全完了</button>
+    <button class="pb" id="play-btn"><span id="play-icon">▶</span></button>
+    <div id="tl-track"><div id="tl-fill"></div><div id="tl-thumb"></div></div>
+    <div id="step-ind">STEP —</div>
+    <div id="time-ind">0:00 / 2:30</div>
+    <div class="spd-g">
+      <button class="spd-b" data-spd="0.7">0.7×</button>
+      <button class="spd-b spd-on" data-spd="1">1×</button>
+      <button class="spd-b" data-spd="1.5">1.5×</button>
+      <button class="spd-b" data-spd="2.5">2.5×</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+/* ═══════════════════════════════════════
+   STEP DEFINITIONS
+═══════════════════════════════════════ */
+const STEP_DEFS = [
+  {id:'reception', label:'受付',      icon:'📥', desc:'依頼内容・不足情報の確認'},
+  {id:'concept',   label:'企画確認',  icon:'🔍', desc:'市場の声・ペルソナシミュレーション'},
+  {id:'planning',  label:'試験計画',  icon:'📋', desc:'シナリオ・コンテンツ・計画案'},
+  {id:'execution', label:'テスト実行',icon:'🚗', desc:'参加者ナビゲート・データ収集'},
+  {id:'report',    label:'報告書',    icon:'📄', desc:'分析・報告書作成・知見蓄積'},
+];
+
+const stepDone = {};
+let doneN = 0;
+let selectedTab = null;
+
+/* ═══════════════════════════════════════
+   BUILD DASHBOARD
+═══════════════════════════════════════ */
+function buildDashboard() {
+  doneN = 0;
+  Object.keys(stepDone).forEach(k => delete stepDone[k]);
+  selectedTab = null;
+
+  const chipRow = document.getElementById('chip-row');
+  chipRow.innerHTML = STEP_DEFS.map((d, i) =>
+    (i > 0 ? '<div class="chip-arrow">▶</div>' : '') +
+    `<div class="step-chip" id="chip-${d.id}">
+      <div class="chip-icon">${d.icon}</div>
+      <div class="chip-label">${d.label}</div>
+      <div class="chip-desc">${d.desc}</div>
+      <div class="chip-status-txt ng" id="chipst-${d.id}">⬜ 未完了</div>
+    </div>`
+  ).join('');
+
+  const steps = document.getElementById('compact-steps');
+  steps.innerHTML = STEP_DEFS.map(d =>
+    `<div class="compact-step" id="cstep-${d.id}" title="${d.label}">
+      <div class="compact-step-chip" id="cchip-${d.id}">${d.icon}</div>
+      <div class="compact-step-label">${d.label}</div>
+    </div>`
+  ).join('');
+
+  const tabBar = document.getElementById('tab-bar');
+  tabBar.innerHTML = STEP_DEFS.map(d =>
+    `<div class="tab-item" id="tab-${d.id}" data-sid="${d.id}">
+      <span class="tab-icon">${d.icon}</span>
+      <span>${d.label}</span>
+      <span class="tab-badge" id="tabbadge-${d.id}">未完了</span>
+    </div>`
+  ).join('');
+  tabBar.querySelectorAll('.tab-item').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const sid = tab.dataset.sid;
+      if (stepDone[sid]) selectTab(sid);
+    });
+  });
+
+  const area = document.getElementById('tab-content-area');
+  area.innerHTML = STEP_DEFS.map(d =>
+    `<div class="tab-panel" id="panel-${d.id}">
+      <div class="placeholder">⏳ ${d.label}ステップのコンテンツがここに表示されます</div>
+    </div>`
+  ).join('');
+  area.classList.remove('visible');
+
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('compact-fill').style.width = '0%';
+  document.getElementById('step-count-txt').textContent = '0 / 5 ステップ完了';
+  document.getElementById('compact-status').textContent = '0 / 5';
+  document.getElementById('status-badge').innerHTML = '<span style="color:#ffc107">🟡</span> 受付済み（確認中）';
+  document.getElementById('progress-area').classList.remove('tab-open');
+}
+
+/* ═══════════════════════════════════════
+   TAB SELECTION
+═══════════════════════════════════════ */
+function selectTab(sid) {
+  STEP_DEFS.forEach(d => {
+    const tab = document.getElementById('tab-' + d.id);
+    if (tab) tab.classList.remove('selected');
+    const panel = document.getElementById('panel-' + d.id);
+    if (panel) panel.classList.remove('active');
+    const cstep = document.getElementById('cstep-' + d.id);
+    if (cstep) cstep.classList.remove('selected');
+  });
+
+  if (selectedTab === sid) {
+    selectedTab = null;
+    document.getElementById('progress-area').classList.remove('tab-open');
+    document.getElementById('tab-content-area').classList.remove('visible');
+    return;
+  }
+
+  selectedTab = sid;
+  document.getElementById('tab-' + sid).classList.add('selected');
+  document.getElementById('panel-' + sid).classList.add('active');
+  document.getElementById('progress-area').classList.add('tab-open');
+  document.getElementById('tab-content-area').classList.add('visible');
+  document.getElementById('tab-content-area').scrollTop = 0;
+
+  const cstep = document.getElementById('cstep-' + sid);
+  if (cstep) cstep.classList.add('selected');
+
+  STEP_DEFS.forEach(d => {
+    const cs = document.getElementById('cstep-' + d.id);
+    if (cs) cs.onclick = () => { if (stepDone[d.id]) selectTab(d.id); };
+  });
+}
+
+/* ═══════════════════════════════════════
+   STEP COMPLETION
+═══════════════════════════════════════ */
+function setChipActiveNow(sid) {
+  const chip = document.getElementById('chip-' + sid);
+  if (chip) { chip.classList.remove('done'); chip.classList.add('active-now'); }
+  const tab = document.getElementById('tab-' + sid);
+  if (tab) { tab.classList.remove('done'); tab.classList.add('active-now'); }
+  const cstep = document.getElementById('cstep-' + sid);
+  if (cstep) cstep.classList.add('active-now');
+}
+
+function completeStep(sid, contentHTML) {
+  stepDone[sid] = true;
+  doneN++;
+
+  const chip = document.getElementById('chip-' + sid);
+  if (chip) { chip.classList.remove('active-now'); chip.classList.add('done'); }
+  const cs = document.getElementById('chipst-' + sid);
+  if (cs) { cs.className = 'chip-status-txt ok'; cs.textContent = '✅ 完了'; }
+
+  const tab = document.getElementById('tab-' + sid);
+  if (tab) { tab.classList.remove('active-now'); tab.classList.add('done'); }
+  const tb = document.getElementById('tabbadge-' + sid);
+  if (tb) tb.textContent = '✅';
+
+  const cstep = document.getElementById('cstep-' + sid);
+  if (cstep) { cstep.classList.remove('active-now'); cstep.classList.add('done'); }
+
+  const pct = doneN / 5 * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('compact-fill').style.width = pct + '%';
+  document.getElementById('step-count-txt').textContent = doneN + ' / 5 ステップ完了';
+  document.getElementById('compact-status').textContent = doneN + ' / 5';
+  document.getElementById('step-ind').textContent = 'STEP ' + doneN + '/5';
+
+  const panel = document.getElementById('panel-' + sid);
+  if (panel && contentHTML) panel.innerHTML = contentHTML;
+
+  selectTab(sid);
+
+  if (doneN === 5) {
+    document.getElementById('status-badge').innerHTML = '<span style="color:#28a745">🟢</span> 完了';
+  }
+}
+
+
+/* ─ 参照データセクション ─ */
+function makeRefSection(id, files) {
+  const lines = files.map(f =>
+    `<div class="ref-file-item">📄 <span>${f}</span></div>`
+  ).join('');
+  return `<div class="ref-section" id="ref-${id}">
+    <div class="ref-section-title" onclick="toggleRef('${id}')">
+      📎 参照したデータ ▾
+    </div>
+    <div class="ref-section-body">${lines}</div>
+  </div>`;
+}
+function toggleRef(id) {
+  const el = document.getElementById('ref-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+function buildDataflowView() {
+  return `
+  <div class="df-master2">
+    <div class="df-master2-title">&#x1F535; マスターデータ（全ステップで参照・継続管理が必要）</div>
+    <div class="df-master2-files">
+      <span class="df-master2-file">dils_master.csv</span>
+      <span class="df-master2-file">past_tests.csv</span>
+      <span class="df-master2-file">personas.csv</span>
+      <span class="df-master2-file">market_voice.csv</span>
+      <span class="df-master2-file">checklist.csv</span>
+      <span class="df-master2-file">validation_knowhow.md</span>
+      <span class="df-master2-file">trouble_knowhow.md</span>
+    </div>
+  </div>
+
+  <div class="df-flow2">
+    <div class="df-block">
+      <div class="df-block-header"><span class="df-step-icon">&#x1F4E5;</span>STEP1：受付</div>
+      <div class="df-zone in-zone">
+        <div class="df-zone-label">&#x2193; インプット</div>
+        <div class="df-chip person">依頼者の口頭依頼</div>
+      </div>
+      <div class="df-zone ai-zone">
+        <div class="df-zone-label">&#x1F916; AI処理</div>
+        <div class="df-ai-item">不足情報を特定</div>
+        <div class="df-ai-item">理由付きで確認質問</div>
+        <div class="df-ai-item">推奨を提案</div>
+        <div class="df-ai-item">受付サマリ生成</div>
+      </div>
+      <div class="df-zone gate-zone">
+        <div class="df-zone-label">&#x23F8; 確認ゲート</div>
+        <div class="df-gate-item">依頼者：回答・承認</div>
+      </div>
+      <div class="df-zone out-zone">
+        <div class="df-zone-label">&#x2191; アウトプット</div>
+        <div class="df-chip new-tx">request.yaml</div>
+      </div>
+    </div>
+    <div class="df-connector">
+      <div class="df-connector-arrow">→</div>
+      <div class="df-connector-files">
+        <div class="df-connector-file">request.yaml</div>
+      </div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-header"><span class="df-step-icon">&#x1F50D;</span>STEP2：企画確認</div>
+      <div class="df-zone in-zone">
+        <div class="df-zone-label">&#x2193; インプット</div>
+        <div class="df-chip tx">request.yaml</div>
+        <div class="df-chip master">past_tests.csv</div>
+        <div class="df-chip master">market_voice.csv</div>
+        <div class="df-chip master">personas.csv</div>
+        <div class="df-chip master">dils_master.csv</div>
+      </div>
+      <div class="df-zone ai-zone">
+        <div class="df-zone-label">&#x1F916; AI処理</div>
+        <div class="df-ai-item">類似テスト検索</div>
+        <div class="df-ai-item">市場の声分析・仮説整理</div>
+        <div class="df-ai-item">シナリオ仮設計</div>
+        <div class="df-ai-item">DiLS一次選定</div>
+        <div class="df-ai-item">Stage1：ペルソナ予測</div>
+        <div class="df-ai-item">Stage2：DiLS連携シミュ</div>
+        <div class="df-ai-item">実施要否判断</div>
+      </div>
+      <div class="df-zone gate-zone">
+        <div class="df-zone-label">&#x23F8; 確認ゲート</div>
+        <div class="df-gate-item">運営者：シミュ結果確認</div>
+        <div class="df-gate-item">依頼者：検証軸・スコープ確定</div>
+      </div>
+      <div class="df-zone out-zone">
+        <div class="df-zone-label">&#x2191; アウトプット</div>
+        <div class="df-chip new-tx">concept_review.md</div>
+      </div>
+    </div>
+    <div class="df-connector">
+      <div class="df-connector-arrow">→</div>
+      <div class="df-connector-files">
+        <div class="df-connector-file">concept_review.md</div>
+      </div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-header"><span class="df-step-icon">&#x1F4CB;</span>STEP3：試験計画</div>
+      <div class="df-zone in-zone">
+        <div class="df-zone-label">&#x2193; インプット</div>
+        <div class="df-chip tx">concept_review.md</div>
+        <div class="df-chip master">past_tests.csv</div>
+        <div class="df-chip master">dils_master.csv</div>
+        <div class="df-chip master">checklist.csv</div>
+        <div class="df-chip master">knowhow.md</div>
+      </div>
+      <div class="df-zone ai-zone">
+        <div class="df-zone-label">&#x1F916; AI処理</div>
+        <div class="df-ai-item">plan.md生成</div>
+        <div class="df-ai-item">scenario.md生成</div>
+        <div class="df-ai-item">DiLS選定確定</div>
+        <div class="df-ai-item">スケジュール逆算</div>
+      </div>
+      <div class="df-zone gate-zone">
+        <div class="df-zone-label">&#x23F8; 確認ゲート</div>
+        <div class="df-gate-item">運営者：計画確認</div>
+        <div class="df-gate-item">依頼者：日程・技術連携確認</div>
+      </div>
+      <div class="df-zone out-zone">
+        <div class="df-zone-label">&#x2191; アウトプット</div>
+        <div class="df-chip new-tx">plan.md</div>
+        <div class="df-chip new-tx">scenario.md</div>
+        <div class="df-chip new-tx">dils_selection.md</div>
+      </div>
+    </div>
+    <div class="df-connector">
+      <div class="df-connector-arrow">→</div>
+      <div class="df-connector-files">
+        <div class="df-connector-file">plan.md</div>
+        <div class="df-connector-file">scenario.md</div>
+      </div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-header"><span class="df-step-icon">&#x1F697;</span>STEP4：テスト実行</div>
+      <div class="df-zone in-zone">
+        <div class="df-zone-label">&#x2193; インプット</div>
+        <div class="df-chip tx">plan.md</div>
+        <div class="df-chip tx">scenario.md</div>
+        <div class="df-chip master">checklist.csv</div>
+        <div class="df-chip master">trouble_knowhow.md</div>
+      </div>
+      <div class="df-zone ai-zone">
+        <div class="df-zone-label">&#x1F916; AI処理</div>
+        <div class="df-ai-item">ナビゲートガイド生成</div>
+        <div class="df-ai-item">リアルタイム進捗報告</div>
+        <div class="df-ai-item">異常・リスク検知</div>
+      </div>
+      <div class="df-zone gate-zone">
+        <div class="df-zone-label">&#x23F8; 確認ゲート</div>
+        <div class="df-gate-item">運営者：開始宣言・確認</div>
+        <div class="df-gate-item">生活者：乗車・タスク・回答</div>
+      </div>
+      <div class="df-zone out-zone">
+        <div class="df-zone-label">&#x2191; アウトプット</div>
+        <div class="df-chip new-tx">questionnaire.csv</div>
+        <div class="df-chip new-tx">execution_log.csv</div>
+      </div>
+    </div>
+    <div class="df-connector">
+      <div class="df-connector-arrow">→</div>
+      <div class="df-connector-files">
+        <div class="df-connector-file">questionnaire.csv</div>
+        <div class="df-connector-file">execution_log.csv</div>
+      </div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-header"><span class="df-step-icon">&#x1F4C4;</span>STEP5：報告書</div>
+      <div class="df-zone in-zone">
+        <div class="df-zone-label">&#x2193; インプット</div>
+        <div class="df-chip tx">questionnaire.csv</div>
+        <div class="df-chip tx">execution_log.csv</div>
+        <div class="df-chip tx">concept_review.md</div>
+        <div class="df-chip master">past_tests.csv</div>
+        <div class="df-chip master">market_voice.csv</div>
+      </div>
+      <div class="df-zone ai-zone">
+        <div class="df-zone-label">&#x1F916; AI処理</div>
+        <div class="df-ai-item">検証3軸に対応した集計</div>
+        <div class="df-ai-item">仮説照合・考察生成</div>
+        <div class="df-ai-item">report_draft.md生成</div>
+        <div class="df-ai-item">知見をDBに蓄積 &#x21BB;</div>
+      </div>
+      <div class="df-zone gate-zone">
+        <div class="df-zone-label">&#x23F8; 確認ゲート</div>
+        <div class="df-gate-item">運営者：内容確認・修正</div>
+        <div class="df-gate-item">依頼者：受取・次フェーズ合意</div>
+      </div>
+      <div class="df-zone out-zone">
+        <div class="df-zone-label">&#x2191; アウトプット</div>
+        <div class="df-chip new-tx">report_draft.md</div>
+        <div class="df-chip master" style="border-color:#2a6a2a;color:#88ff88">past_tests.csv（更新）</div>
+        <div class="df-chip master" style="border-color:#2a6a2a;color:#88ff88">market_voice.csv（更新）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="df-cycle">
+    <strong style="color:#7cd67c">&#x1F504; データサイクル：</strong>
+    STEP5でマスターデータが更新 &#x2192; 次案件のSTEP2で参照 &#x2192; エージェントの精度が継続的に向上。
+    マスターデータの鮮度・品質管理が全体の判断品質を左右する。
+  </div>
+
+  <div class="df-legend2">
+    <div class="df-legend2-item"><div class="df-legend2-dot" style="background:#1a3a6a"></div>マスターデータ（継続管理）</div>
+    <div class="df-legend2-item"><div class="df-legend2-dot" style="background:#1a4a1a"></div>案件データ（案件ごとに生成）</div>
+    <div class="df-legend2-item"><div class="df-legend2-dot" style="background:#3a2a5a"></div>AI処理</div>
+    <div class="df-legend2-item"><div class="df-legend2-dot" style="background:#4a3a00"></div>人の確認ゲート</div>
+  </div>
+  `;
+}
+
+
+/* ═══════════════════════════════════════
+   STEP CONTENT — EXP-003 (対話ログはチャットパネルに表示。タブはアウトプット表示)
+═══════════════════════════════════════ */
+function getStepContent(sid) {
+  if (sid === 'reception') return `
+    <div class="card">
+      <div class="card-title">📋 受付サマリ（request.yaml）</div>
+      <div class="md-content">${renderMd(`| 項目 | 内容 |
+|---|---|
+| 案件ID | EXP-003 |
+| 依頼名 | 車載音声UIアシスタントの操作性・環境適応評価 |
+| 目的 | 新しい音声UIアシスタントが様々なドライバー・走行環境で実用的に機能するか確認 |
+| 評価タスク | ナビ目的地設定 / 電話発信 / 音楽変更 |
+| 被験者方針 | 高齢者・低リテラシー層を含む幅広い一般ドライバー |
+| 暫定合否基準 | 認識成功率80%以上 / 完了時間15秒以内 / 満足度4.0以上 |`)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">✅ 確認済みの不足情報</div>
+      <div class="md-content">${renderMd(`| 確認項目 | 内容 | 状態 |
+|---|---|---|
+| 評価タスク | ナビ目的地設定・電話発信・音楽変更の3タスク（AIが推奨・承認済み） | ✅ 解決 |
+| 被験者方針 | 高齢者・低リテラシー層を含む幅広い一般ドライバー | ✅ 解決 |
+| 合否基準 | 認識成功率80%以上・完了時間15秒以内（AIが暫定設定・承認済み） | ✅ 解決 |
+| 外国語ネイティブ | 今回はスコープ外。次フェーズで実施（STEP2にて確定） | ✅ 確定 |`)}</div>
+    </div>`+ makeRefSection('reception', [`data/04_sample/sample_request.yaml`, `runs/EXP-003_音声UI評価/request.yaml`]);
+
+  if (sid === 'concept') return `
+    <div class="sub-tab-bar">
+      <div class="sub-tab-item active" onclick="selectSubTab('concept','phase1',this)">フェーズ1：分析・シミュレーション</div>
+      <div class="sub-tab-item" onclick="selectSubTab('concept','phase2',this)">依頼者との議論・方針確定</div>
+    </div>
+    <div class="sub-tab-panel active" id="concept-phase1">
+      <div class="card">
+        <div class="card-title">🔍 類似テスト検索結果（past_tests.csv 参照）</div>
+        <div class="md-content">${renderMd(`| テストID | タイトル | 参考になるもの | 今回との違い |
+|---|---|---|---|
+| TEST-2025-049 | 車内騒音環境下でのタッチ操作性評価 | 騒音設定値65dB/80dB・タスク完了時間計測手法 | タッチ操作 vs 音声操作 |
+| TEST-2025-022 | ADAS警報タイミング評価 | 高速シナリオ構成・反応時間計測 | 受動的反応 vs 能動的音声入力 |
+
+**TEST-2025-049の被験者の声（key_finding）：**「タッチ操作より音声で操作したい」という需要が自発的に複数出た`)}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📢 市場の声（market_voice.csv 参照）</div>
+        <div class="md-content">${renderMd(`| 対象層 | 代表的な声 | 仮説への示唆 |
+|---|---|---|
+| シニア層 | 「何度言っても聞き取ってくれない。結局タッチにした」 | 認識失敗 → 即離脱のパターン |
+| シニア層 | 「大きな声で話すのが恥ずかしい」 | 精度改善だけでは解決しない心理的障壁あり |
+| 外国人 | 「発音が少し違うだけで全然認識されない」 | アクセント問題は構造的課題 |
+| 一般 | 「高速走行中はエンジン音がうるさくて認識しない」 | 騒音環境が最大の離脱トリガー |
+| 若年層 | 「スマホの感覚で使えた。慣れたら便利」 | テクノロジー慣れ層は受容性高い |
+| 市場全体 | 「搭載率は3年で2倍になったが満足度は横ばい」 | 機能普及と体験品質のギャップが拡大中 |`)}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">🤖 Stage2：DiLS-04連携シミュレーション結果</div>
+        <div class="md-content">${renderMd(`**シーンA（市街地65dB）・シーンB（高速80dB）**
+
+| ペルソナ | 市街地A | 高速B | 主なリスク | 市場の声との対応 |
+|---|---|---|---|---|
+| P006（68歳・低リテラシー） | ❌ | ❌ | 声量不足・発話不慣れ | 「何度言っても聞き取れない」層 |
+| P021（71歳・シニア主婦） | ❌ | ❌ | 心理的抵抗・音声UI初体験 | 「恥ずかしい」層 |
+| P009（26歳・中国人） | △ | ❌ | 日本語アクセント誤認識 | 「発音が違うと認識されない」層 |
+| P012（29歳・トラック運転手） | ✅ | ✅ | なし | ベースライン層 |
+| P003（35歳・IT系） | ✅ | ✅ | なし | 「慣れたら便利」層 |`)}</div>
+        <div style="margin-top:8px;padding:8px 12px;background:#fee2e2;border-radius:6px;font-size:12px;color:#dc2626;font-weight:600">25名中11名に高リスク。高齢・外国語ネイティブ層に集中。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 実施要否判断</div>
+        <div class="md-content">${renderMd(`**判断：実機テストの実施を推奨**
+
+| 理由 | 根拠 |
+|---|---|
+| 音声UI評価の前例がない | past_tests.csvに記録なし。実機で取るべきデータあり |
+| ユーザー層で結果が大きく分かれる | テクノロジー慣れ vs 高齢層で顕著な差。リリース判断に直結 |
+| 合否基準の根拠あり | TEST-2025-049の実績から15秒以内が妥当と確認済み |
+
+**推奨被験者構成：** 高齢者（必須） / テクノロジー慣れ層（ベースライン） / 低リテラシー層（推奨）`)}</div>
+      </div>
+    </div>
+    <div class="sub-tab-panel" id="concept-phase2">
+      <div class="card">
+        <div class="card-title">✅ 依頼者との議論で確定した方針</div>
+        <div class="md-content">${renderMd(`| 項目 | 確定内容 |
+|---|---|
+| 実施可否 | 実施する |
+| 検証3軸 | ①ナビ入力の認識精度（改善UIで解消できているか）|
+|  | ②高齢層の操作成功率（改善でどこまで変わるか）|
+|  | ③騒音環境での認識（今回の改善で差がつくか）|
+| スコープ外 | 外国語ネイティブ（次フェーズへ申し送り） |
+| アンケート追加 | 「音声で話しかけることへの抵抗感」設問を追加 |
+
+**依頼者からの重要な情報：** 認識精度を改善済み・地名候補も画面表示するようにした。その効果を確認したい
+→ 改善前（市場の声）vs 改善後（今回の実測）の差分が検証の核心`)}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📌 STEP3への引き継ぎ事項（concept_review.md より）</div>
+        <div class="md-content">${renderMd(`- 検証3軸：ナビ入力精度 / 高齢層成功率 / 騒音環境認識
+- 被験者：高齢者5名・テクノロジー慣れ5名・低リテラシー2〜3名（計12〜13名）
+- スコープ外：外国語ネイティブ → 次フェーズ課題として報告書に明記
+- アンケート：Q1〜Q5 + 心理的抵抗感の設問を追加
+- DiLS：第一候補DiLS-04（VR＋音響）/ 第二候補DiLS-03`)}</div>
+      </div>
+    </div>`+ makeRefSection('concept', [`data/03_reference/past_tests.csv（key_finding含む）`, `data/03_reference/market_voice.csv`, `data/03_reference/personas.csv`, `data/03_reference/dils_master.csv`, `runs/EXP-003_音声UI評価/concept_review.md`]);
+
+  if (sid === 'planning') return `
+    <div class="sub-tab-bar">
+      <div class="sub-tab-item active" onclick="selectSubTab('planning','plan',this)">試験計画（plan.md）</div>
+      <div class="sub-tab-item" onclick="selectSubTab('planning','dils',this)">DiLS選定（dils_selection.md）</div>
+      <div class="sub-tab-item" onclick="selectSubTab('planning','scenario',this)">シナリオ（scenario.md）</div>
+    </div>
+    <div class="sub-tab-panel active" id="planning-plan">
+      <div class="card">
+        <div class="card-title">📄 試験計画（plan.md）</div>
+        <div class="md-content">${renderMd(`# 試験計画 — EXP-003
+
+## 1. 評価目的
+
+改善済み音声UIが市場で指摘されている課題（ナビ入力困難・高齢層離脱・騒音問題）を解消できているかを検証する。
+
+## 2. 試験構成
+
+| 項目 | 内容 |
+|---|---|
+| 評価環境 | DiLS-04（VR・音響シミュレーション） |
+| 走行シナリオ | A：市街地（30〜50km/h / 65dB） / B：高速（80〜100km/h / 80dB） |
+| 評価タスク | ナビ目的地設定 / 電話発信 / 音楽変更 |
+| 被験者数 | 12〜13名（高齢者5名・テクノロジー慣れ5名・低リテラシー2〜3名） |
+
+## 3. 合否判断基準（事前合意済み）
+
+| 指標 | 目標値 | 根拠 |
+|---|---|---|
+| 音声認識成功率 | 80%以上 | 業界標準値 |
+| タスク完了時間 | 15秒以内 | TEST-2025-049実績（タッチ操作12.4秒）より設定 |
+| アンケート満足度 | 4.0以上 | 依頼者と事前合意 |
+
+## 4. スケジュール（6月末提出を逆算）
+
+| 日程 | フェーズ |
+|---|---|
+| 〜6月6日 | DiLS-04コンテンツ準備・音声UI連携設定 |
+| 6月9日 | DiLS-04動作確認セッション（初使用のため必須） |
+| 6月10日 | 予備実験（2名） |
+| 6月11〜13日 | 本実験（12〜13名、1名65〜80分） |
+| 6月14〜20日 | データ整理・報告書ドラフト |
+| 6月末 | 報告書提出 |`)}</div>
+      </div>
+    </div>
+    <div class="sub-tab-panel" id="planning-dils">
+      <div class="card">
+        <div class="card-title">🏭 DiLS選定（dils_selection.md）</div>
+        <div class="md-content">${renderMd(`## 推奨DiLS：第一候補 DiLS-04
+
+| 評価項目 | 配点 | 得点 | 理由 |
+|---|---|---|---|
+| 音響シミュレーション | 40点 | 40点 | 65dB/80dBの騒音を精密に再現可能 |
+| VR視覚没入 | 30点 | 30点 | 走行中の認知状態を再現。音声UIの実態に近い評価が可能 |
+| 稼働状況 | 20点 | 20点 | 稼働可能 |
+| 過去実績 | 10点 | 0点 | 今回が初使用（動作確認セッション必須） |
+| **合計** | **100点** | **90点** | |
+
+**第二候補：DiLS-03**（音響＋振動。DiLS-04が使えない場合）
+
+## 選定の根拠
+
+今回の評価で重要なのは「ドライバーが走行に集中している状態で音声UIを使う」認知状態の再現。
+VRによる視覚的没入感がその実現に最も効果的なため、DiLS-04を選定。`)}</div>
+      </div>
+    </div>
+    <div class="sub-tab-panel" id="planning-scenario">
+      <div class="card">
+        <div class="card-title">🗺️ 走行シナリオ（scenario.md）</div>
+        <div class="md-content">${renderMd(`## シーンA：市街地走行
+
+| 項目 | 設定値 | 根拠 |
+|---|---|---|
+| 走行速度 | 30〜50km/h・信号あり | 一般的な市街地条件 |
+| 騒音レベル | 65dB | TEST-2025-049の実績値を採用 |
+| 主タスク | ナビ目的地設定 | 最も不満の多いタスク（市場の声より） |
+
+## シーンB：高速走行
+
+| 項目 | 設定値 | 根拠 |
+|---|---|---|
+| 走行速度 | 80〜100km/h | 依頼者から高速での使用が多いとの情報あり |
+| 騒音レベル | 80dB | TEST-2025-049の実績値を採用 |
+| 主タスク | 電話発信・音楽変更 | 騒音が最大障壁になるシーンで評価 |
+
+## セッション設計（1名あたり）
+
+| フェーズ | 内容 | 時間 |
+|---|---|---|
+| 導入 | DiLS-04説明・練習タスク | 15分 |
+| シーン1 | 走行・タスク実行 | 15分 |
+| アンケート① | シーン1の評価 | 5分 |
+| シーン2 | 走行・タスク実行 | 15分 |
+| アンケート② | シーン2の評価 | 5分 |
+| 総合ヒアリング | 自由記述・全体感 | 10分 |
+| **合計** | | **65分（高齢者は80分）** |
+
+実施順序：奇数番A→B、偶数番B→A（順序効果対策）
+
+## アンケート設問
+
+| 設問 | 評価軸 | 形式 |
+|---|---|---|
+| Q1 音声が正しく認識されましたか | 認識軸 | 5段階 |
+| Q2 操作を完了できましたか | 認識軸 | 5段階 |
+| Q3 アシスタントの応答はわかりやすかったですか | 理解軸 | 5段階 |
+| Q4 操作中にストレスを感じましたか | 総合 | 5段階 |
+| Q5 この機能を実際に使いたいと思いますか | 総合 | 5段階 |
+| Q6 音声で話しかけることに抵抗はありましたか | 心理的障壁 | 5段階 |
+| Q7 気になったことがあれば教えてください | — | 自由記述 |`)}</div>
+      </div>
+    </div>`+ makeRefSection('planning', [`runs/EXP-003_音声UI評価/concept_review.md`, `data/03_reference/past_tests.csv`, `data/03_reference/dils_master.csv`, `data/03_reference/checklist.csv`, `validation_knowhow.md`, `trouble_knowhow.md`, `runs/EXP-003_音声UI評価/plan.md`, `runs/EXP-003_音声UI評価/scenario.md`, `runs/EXP-003_音声UI評価/dils_selection.md`]);
+
+  if (sid === 'execution') return `
+    <div class="card">
+      <div class="card-title">📊 実施サマリ</div>
+      <div class="md-content">${renderMd(`| 指標 | 結果 | 基準 | 判定 |
+|---|---|---|---|
+| 全体の認識成功率 | 78% | 80%以上 | ❌ わずかに未達 |
+| タスク完了時間（市街地） | 11.2秒 | 15秒以内 | ✅ 達成 |
+| タスク完了時間（高速） | 14.8秒 | 15秒以内 | ✅ 達成 |
+| 操作断念件数 | 3名（P006・P013・P021） | — | 要分析 |
+| アンケート回収 | 12/13名 | 13名 | P009のQ6が欠損 |`)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 ペルソナ層別の認識成功率（questionnaire.csv 集計）</div>
+      <div class="md-content">${renderMd(`| ペルソナ層 | 人数 | 市街地A | 高速B | 操作断念 |
+|---|---|---|---|---|
+| 高齢者（60代以上） | 5名 | 38% | 22% | 3名 |
+| テクノロジー慣れ（30〜40代） | 5名 | 96% | 91% | 0名 |
+| 低リテラシー（40〜50代） | 3名 | 71% | 54% | 0名 |
+| **全体** | **13名** | **68%** | **56%** | **3名** |`)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 アンケート集計（シナリオ別平均）</div>
+      <div class="md-content">${renderMd(`| 設問 | 市街地A | 高速B | 合否基準 |
+|---|---|---|---|
+| Q1 音声認識のしやすさ | 3.8 | 3.2 | 4.0以上 |
+| Q2 タスク完了のしやすさ | 3.9 | 3.5 | 4.0以上 |
+| Q3 応答内容のわかりやすさ | 4.1 | 3.9 | 4.0以上 |
+| Q4 操作中のストレス | 3.6 | 3.1 | 参考値 |
+| Q5 実際に使いたいか | 3.7 | 3.4 | 参考値 |
+| Q6 音声操作への抵抗感 | 3.5 | 3.2 | 参考値（追加設問）|`)}</div>
+    </div>`+ makeRefSection('execution', [`runs/EXP-003_音声UI評価/plan.md`, `runs/EXP-003_音声UI評価/scenario.md`, `data/04_sample/sample_questionnaire.csv`, `data/03_reference/checklist.csv`, `trouble_knowhow.md`, `runs/EXP-003_音声UI評価/execution_log.csv`, `runs/EXP-003_音声UI評価/questionnaire.csv`]);
+
+  if (sid === 'report') return `
+    <div class="card">
+      <div class="card-title">📄 報告書ドラフト（report_draft.md）</div>
+      <div class="md-content">${renderMd(`# DS検証結果報告書ドラフト
+
+**案件ID：** EXP-003　**案件名：** 車載音声UIアシスタントの操作性・環境適応評価
+**作成日：** 2026-06-20　**ステータス：** 担当者確認待ち
+
+---
+
+## 1. 検証3軸の結果
+
+| 検証軸 | 目標 | 結果 | 判定 |
+|---|---|---|---|
+| ①ナビ入力の認識精度（全体） | 80%以上 | **78%** | ❌ わずかに未達 |
+| ②高齢層の操作成功率 | 80%以上 | **31%** | ❌ 大きく未達 |
+| ③騒音環境（高速80dB）での認識 | 完了時間15秒以内 | **14.8秒** | ✅ 達成 |
+
+## 2. 重要な発見（シミュレーション予測を超えた知見）
+
+高齢層の失敗は認識精度の問題だけでなく、**「大きな声で話すことへの心理的抵抗感」** が操作断念の主因であることが判明。
+これは認識精度を改善するだけでは解決しない課題であり、UXデザイン的なアプローチが必要。
+
+## 3. 残課題・次フェーズ申し送り
+
+- 高齢層向けUX改善（小声でも認識できる感度調整・失敗時のフィードバック設計）
+- 外国語ネイティブ評価（今回スコープ外。来年の海外展開前に実施）`)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔄 知見をDBに蓄積（次の案件で自動参照）</div>
+      <div class="md-content">${renderMd(`| 種別 | 追加内容 | 追加先 |
+|---|---|---|
+| 市場の声 | 高齢層は認識精度より心理的抵抗感が課題。失敗体験が使用離脱につながる | market_voice.csv |
+| 過去テスト | EXP-003：高齢層31%・テクノロジー慣れ94%の層間格差が顕著 | past_tests.csv |
+| 過去トラ | 失敗後ヒアリングは参加者の精神状態に配慮が必要。落ち着かせる声かけを先に | trouble_knowhow.md |`)}</div>
+    </div>`+ makeRefSection('report', [`runs/EXP-003_音声UI評価/questionnaire.csv`, `runs/EXP-003_音声UI評価/execution_log.csv`, `runs/EXP-003_音声UI評価/plan.md`, `data/03_reference/past_tests.csv`, `data/03_reference/market_voice.csv`, `runs/EXP-003_音声UI評価/concept_review.md`, `output/reports/EXP-003_report_draft.md`]);
+
+  return '<div class="placeholder">コンテンツ準備中</div>';
+}
+
+/* ═══════════════════════════════════════
+   SUB-TAB SWITCHING
+═══════════════════════════════════════ */
+function selectSubTab(parentId, panelId, clickedTab) {
+  // Deactivate all sub-tab-items in parent
+  const parentPanel = document.getElementById('panel-' + parentId);
+  parentPanel.querySelectorAll('.sub-tab-item').forEach(t => t.classList.remove('active'));
+  parentPanel.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
+  // Activate clicked
+  clickedTab.classList.add('active');
+  document.getElementById(parentId + '-' + panelId).classList.add('active');
+}
+
+/* ═══════════════════════════════════════
+   MARKDOWN RENDERER
+═══════════════════════════════════════ */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtInline(s){
+  return esc(s)
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>');
+}
+function renderMd(text){
+  const lines=text.split('\n');
+  let html='';let inTable=false;let tableRows=[];let inList=false;
+  function flushTable(){
+    if(!tableRows.length) return;
+    html+='<table class="md-content" style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12px"><thead><tr>';
+    const hdrs=tableRows[0].split('|').filter((c,i,a)=>i>0&&i<a.length-1).map(c=>c.trim());
+    hdrs.forEach(h=>html+=`<th style="background:#f8f9fa;font-weight:700;padding:7px 10px;border:1px solid #dee2e6;text-align:left;font-size:11.5px">${fmtInline(h)}</th>`);
+    html+='</tr></thead><tbody>';
+    for(let r=2;r<tableRows.length;r++){
+      const cells=tableRows[r].split('|').filter((c,i,a)=>i>0&&i<a.length-1).map(c=>c.trim());
+      if(cells.every(c=>c.match(/^[-:]+$/))) continue;
+      html+='<tr>';cells.forEach(c=>html+=`<td style="padding:6px 10px;border:1px solid #dee2e6">${fmtInline(c)}</td>`);html+='</tr>';
+    }
+    html+='</tbody></table>';tableRows=[];inTable=false;
+  }
+  function flushList(){if(inList){html+='</ul>';inList=false;}}
+  lines.forEach(line=>{
+    if(line.startsWith('|')){flushList();if(!inTable)inTable=true;tableRows.push(line);return;}
+    else if(inTable) flushTable();
+    if(line.match(/^---+\s*$/)){flushList();html+='<hr style="border:none;border-top:1px solid #e8e8e8;margin:10px 0">';return;}
+    if(line.startsWith('## ')){flushList();html+=`<h2 style="font-size:14px;font-weight:700;margin:12px 0 6px;color:#1a1a2e;border-bottom:1px solid #e8e8e8;padding-bottom:4px">${fmtInline(line.slice(3))}</h2>`;return;}
+    if(line.startsWith('# ')){flushList();html+=`<h1 style="font-size:16px;font-weight:700;margin:0 0 10px;color:#1a1a2e">${fmtInline(line.slice(2))}</h1>`;return;}
+    if(line.match(/^[-*] /)){
+      if(!inList){html+='<ul style="padding-left:18px;margin-bottom:6px">';inList=true;}
+      html+=`<li style="margin-bottom:3px;font-size:12.5px">${fmtInline(line.slice(2))}</li>`;return;
+    }
+    flushList();
+    if(line.trim()===''){html+='<div style="height:5px"></div>';return;}
+    html+=`<p style="margin-bottom:5px;font-size:12.5px">${fmtInline(line)}</p>`;
+  });
+  flushTable();flushList();
+  return html;
+}
+
+/* ═══════════════════════════════════════
+   CHAT HELPERS
+═══════════════════════════════════════ */
+const chatEl = document.getElementById('chat-messages');
+let speed = 1, paused = false, abortFlag = false, pauseRes = null, demoRunning = false, demoTs = null;
+
+async function sleep(ms) {
+  if(abortFlag) return;
+  while(paused){await new Promise(r=>{pauseRes=r;});if(abortFlag) return;}
+  await new Promise(r=>setTimeout(r,ms/speed));
+  while(paused){await new Promise(r=>{pauseRes=r;});if(abortFlag) return;}
+}
+
+function addSys(t){
+  const el=document.createElement('div');el.className='msg-system';
+  el.textContent=t;chatEl.appendChild(el);chatEl.scrollTop=chatEl.scrollHeight;
+}
+
+function fmtChat(raw){
+  const lines = raw.split('\n');
+  let result = '';
+  let i = 0;
+  let inList = false;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // テーブル行
+    if (line.trim().startsWith('|')) {
+      if (inList) { result += '</ul>'; inList = false; }
+      let tableLines = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      let thtml = '<table style="border-collapse:collapse;margin:8px 0;font-size:12px;width:100%">';
+      let firstRow = true;
+      for (const tl of tableLines) {
+        if (/^\s*\|[\s\-:|]+\|/.test(tl)) continue; // セパレータ行をスキップ
+        const cells = tl.split('|').filter((c,idx,arr)=>idx>0&&idx<arr.length-1).map(c=>c.trim());
+        if (firstRow) {
+          thtml += '<thead><tr>';
+          cells.forEach(c => thtml += `<th style="background:#2a2a2a;padding:6px 10px;border:1px solid #444;text-align:left;font-weight:600">${fmtInline(c)}</th>`);
+          thtml += '</tr></thead><tbody>';
+          firstRow = false;
+        } else {
+          thtml += '<tr>';
+          cells.forEach(c => thtml += `<td style="padding:5px 10px;border:1px solid #333;vertical-align:top">${fmtInline(c)}</td>`);
+          thtml += '</tr>';
+        }
+      }
+      thtml += '</tbody></table>';
+      result += thtml;
+      continue;
+    }
+
+    // コードブロック行（```で始まる）
+    if (line.trim().startsWith('```')) {
+      if (inList) { result += '</ul>'; inList = false; }
+      i++;
+      let code = '';
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        code += esc(lines[i]) + '\n';
+        i++;
+      }
+      i++; // 閉じ ``` をスキップ
+      result += `<pre style="background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:8px 12px;font-size:11px;font-family:'Consolas',monospace;color:#ccc;margin:6px 0;overflow-x:auto;white-space:pre">${code.trimEnd()}</pre>`;
+      continue;
+    }
+
+    // リスト行
+    if (/^[-*]\s/.test(line.trim())) {
+      if (!inList) { result += '<ul style="padding-left:16px;margin:4px 0">'; inList = true; }
+      result += `<li style="margin-bottom:3px;font-size:13px">${fmtInline(line.trim().slice(2))}</li>`;
+      i++;
+      continue;
+    }
+
+    if (inList) { result += '</ul>'; inList = false; }
+
+    // 空行
+    if (line.trim() === '') {
+      result += '<div style="height:5px"></div>';
+      i++;
+      continue;
+    }
+
+    // 通常行
+    result += fmtInline(line) + '<br>';
+    i++;
+  }
+
+  if (inList) result += '</ul>';
+  return result;
+}
+function buildFrames(html){
+  const fr=[];let i=0;
+  while(i<html.length){
+    if(html[i]==='<'){while(i<html.length&&html[i]!=='>') i++;i++;}
+    else if(html[i]==='&'){const e=html.indexOf(';',i);i=(e===-1)?i+1:e+1;fr.push(html.substring(0,i));}
+    else{i++;fr.push(html.substring(0,i));}
+  }
+  return fr;
+}
+
+let _thinkUid=0;
+async function showThinking(steps,ms){
+  if(abortFlag) return;
+  const uid=++_thinkUid;
+  const row=document.createElement('div');row.className='thinking-row';
+  const wrap=document.createElement('div');wrap.className='thinking-wrap t-open';
+  const hdr=document.createElement('div');hdr.className='thinking-hdr';
+  hdr.innerHTML=`<div class="t-spin" id="tsp-${uid}"></div><div class="t-lbl" id="tlbl-${uid}">考え中...</div><div class="t-toggle">▲</div>`;
+  hdr.addEventListener('click',()=>wrap.classList.toggle('t-open'));
+  const body=document.createElement('div');body.className='thinking-body';
+  const stepsEl=document.createElement('div');stepsEl.className='thinking-steps';
+  body.appendChild(stepsEl);wrap.appendChild(hdr);wrap.appendChild(body);
+  row.innerHTML='<div class="av">AI</div>';row.appendChild(wrap);
+  chatEl.appendChild(row);chatEl.scrollTop=chatEl.scrollHeight;
+  const per=Math.floor(ms/steps.length);
+  for(let i=0;i<steps.length;i++){
+    if(abortFlag) return;
+    const st=document.createElement('div');st.className='t-step';
+    if(i<steps.length-1) st.innerHTML=`<div class="t-step-sp"></div><span>${steps[i]}</span>`;
+    else st.innerHTML=`<div class="t-step-ico">✏️</div><span>${steps[i]}</span>`;
+    stepsEl.appendChild(st);requestAnimationFrame(()=>st.classList.add('t-show'));
+    if(i>0){const prev=stepsEl.children[i-1];prev.classList.add('t-done');const sp=prev.querySelector('.t-step-sp');if(sp) sp.outerHTML='<div class="t-step-ico">✓</div>';}
+    chatEl.scrollTop=chatEl.scrollHeight;
+    await sleep(per);if(abortFlag) return;
+  }
+  const sp2=document.getElementById('tsp-'+uid);const lb2=document.getElementById('tlbl-'+uid);
+  if(sp2) sp2.classList.add('done');if(lb2){lb2.textContent='思考完了';lb2.classList.add('done');}
+  const last=stepsEl.lastChild;
+  if(last){last.classList.add('t-done');const ico=last.querySelector('.t-step-ico');if(ico) ico.textContent='✓';}
+  await sleep(300);if(!abortFlag) wrap.classList.remove('t-open');
+}
+
+async function streamMsg(role,rawText,thinkSteps,thinkMs){
+  if(abortFlag) return;
+  const charDelay=(role==='claude')?11:5;
+  if(role==='claude'){
+    if(thinkSteps&&thinkSteps.length) await showThinking(thinkSteps,thinkMs||2500);
+    else{
+      const typer=document.createElement('div');typer.className='typing-row';
+      typer.innerHTML='<div class="av">AI</div><div class="typing-dots"><span></span><span></span><span></span></div>';
+      chatEl.appendChild(typer);chatEl.scrollTop=chatEl.scrollHeight;
+      await sleep(600);if(abortFlag){typer.remove();return;}typer.remove();
+    }
+  }
+  if(abortFlag) return;
+  const row=document.createElement('div');
+  if(role==='user'){
+    row.className='msg-row-user';const b=document.createElement('div');b.className='bubble-user';row.appendChild(b);
+    chatEl.appendChild(row);
+    const html=fmtChat(rawText);const frames=buildFrames(html);
+    for(let i=0;i<frames.length;i++){if(abortFlag) return;b.innerHTML=frames[i]+'<span class="cur">▌</span>';chatEl.scrollTop=chatEl.scrollHeight;await sleep(charDelay);}
+    if(!abortFlag) b.innerHTML=html;
+  } else {
+    row.className='msg-row-claude';row.innerHTML='<div class="av">AI</div><div class="bubble-claude"></div>';
+    chatEl.appendChild(row);const b=row.querySelector('.bubble-claude');
+    const html=fmtChat(rawText);const frames=buildFrames(html);
+    for(let i=0;i<frames.length;i++){if(abortFlag) return;b.innerHTML=frames[i]+'<span class="cur">▌</span>';chatEl.scrollTop=chatEl.scrollHeight;await sleep(charDelay);}
+    if(!abortFlag) b.innerHTML=html;
+  }
+  chatEl.scrollTop=chatEl.scrollHeight;
+}
+
+/* ═══════════════════════════════════════
+   TIMELINE
+═══════════════════════════════════════ */
+const tlFill=document.getElementById('tl-fill');
+const tlThumb=document.getElementById('tl-thumb');
+const timeInd=document.getElementById('time-ind');
+const stepInd=document.getElementById('step-ind');
+const TOTAL=150;
+let tlId=null;
+function startTl(){
+  if(tlId) cancelAnimationFrame(tlId);
+  const tick=()=>{
+    if(!demoRunning||paused){tlId=null;return;}
+    const el=(Date.now()-demoTs)/1000;
+    const pct=Math.min(99,el/(TOTAL/speed)*100);
+    tlFill.style.width=pct+'%';tlThumb.style.left=pct+'%';
+    const s=Math.floor(Math.min(el*speed,TOTAL));
+    timeInd.textContent=ft(s)+' / '+ft(TOTAL);
+    tlId=requestAnimationFrame(tick);
+  };
+  tlId=requestAnimationFrame(tick);
+}
+function stopTl(){if(tlId){cancelAnimationFrame(tlId);tlId=null;}}
+function ft(s){return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60}
+
+/* ═══════════════════════════════════════
+   DEMO SCRIPT (simplified for prototype)
+═══════════════════════════════════════ */
+const SCRIPT = [
+  {
+   t: `sys`,
+   m: `DS業務AIエージェント デモ — EXP-003 車載音声UIアシスタントの操作性・環境適応評価`,
+  },
+  {
+   t: `pause`,
+   ms: 400,
+  },
+  {
+   t: `user`,
+   m: `新しく開発した車載音声UIアシスタントをリリース前に評価したいんです。走行中に音声で操作できるかを確認したくて。特に騒音が多い環境でちゃんと使えるか心配で。`,
+  },
+  {
+   t: `chip-active`,
+   sid: `reception`,
+  },
+  {
+   t: `claude`,
+   think: [`📂 request.yaml を読み込み中`, `🔍 open_questions を確認中（3件）`, `✏️ 確認質問を生成中`],
+   thinkMs: 2000,
+   m: `ありがとうございます。依頼を受け付けました。目的と背景は理解しました。
+
+計画を立てるために順番に確認させてください。まず1点目です。
+
+**どの操作タスクを評価したいですか？**
+
+タスクによって必要なシナリオや判断基準が変わるため、先に決めておく必要があります。音声UIには例えばこういった操作があります。
+- ナビの目的地設定（長い文字列を正確に認識できるか）
+- 電話発信（人名など固有名詞の認識。誤ったら困る操作）
+- 音楽・空調の変更（短いコマンド。比較的認識しやすい）
+
+全タスクをカバーすることも可能ですが、時間とコストとのバランスがあります。今回の最優先は何でしょうか？`,
+  },
+  {
+   t: `user`,
+   m: `うーん、全部確認したいんだけど…何かおすすめある？`,
+  },
+  {
+   t: `claude`,
+   m: `初回評価であれば **ナビ目的地設定・電話発信・音楽変更の3タスク** をおすすめします。理由は3つあります。
+- ナビ設定は長い文字列を正確に認識できるかという最も難しいケースです
+- 電話発信は誤認識したときのユーザーへの影響が大きく、問題が出やすいタスクです
+- 音楽変更は短いコマンドなので比較のベースラインになります
+
+この3タスクで認識精度の高低両端が押さえられます。いかがでしょうか？`,
+  },
+  {
+   t: `user`,
+   m: `それでお願いします。`,
+  },
+  {
+   t: `claude`,
+   m: `ありがとうございます。続いて2点目です。
+
+**被験者はどのような方を想定していますか？**
+
+被験者の属性によって評価できることが大きく変わります。高齢の方は声量が小さかったり発話パターンが音声認識エンジンの想定と異なる場合があり、若年層とはまったく違う結果が出ます。特に今回「騒音環境での認識」が懸念ということなので、その影響を最も受けやすい層を確認しておきたいです。
+
+対象にしたいユーザー層や、逆に今回は外したい条件はありますか？`,
+  },
+  {
+   t: `user`,
+   m: `できれば幅広く見たくて、高齢者も入れた方がいいかなと。あと、うちの車は海外でも売るから外国人ユーザーも気になってるんですよ。`,
+  },
+  {
+   t: `claude`,
+   m: `重要な観点です。それであれば **60代以上の高齢者と外国語ネイティブ話者を被験者に意図的に含める** ことを推奨します。
+
+この2層は音声認識でトラブルが出やすいことが分かっていて、今回の騒音環境への懸念とも重なります。具体的な人数や男女比は試験計画のステップで一緒に決めていきましょう。
+
+では最後に3点目です。
+
+**合否の判断基準は決まっていますか？**
+
+結果が出たあとに「数字は出たけど合格かどうか分からない」という状態を防ぐために、評価前に基準を決めておく必要があります。例えば過去の類似評価では「認識成功率80%以上」「タスク完了時間15秒以内」が使われることが多いです。御社として基準のイメージはありますか？`,
+  },
+  {
+   t: `user`,
+   m: `そこまで考えてなかったな。参考値でいいから決めといてもらえる？`,
+  },
+  {
+   t: `claude`,
+   m: `わかりました。以下を **暫定基準として設定します。試験計画のステップで最終合意を取る形にします。**
+
+- 音声認識成功率：80%以上（騒音なし環境の標準値を参考）
+- タスク完了時間：15秒以内（ナビ設定タスク基準）
+- アンケート満足度：5段階中4.0以上
+
+確認事項がすべて揃いました。受付を完了します。
+
+**受付サマリ：**
+- 案件ID：EXP-003
+- 評価対象：車載音声UIアシスタント
+- 評価タスク：ナビ目的地設定・電話発信・音楽変更
+- 被験者方針：高齢者・外国語ネイティブを含む幅広い一般ドライバー
+- 暫定合否基準：認識成功率80%以上・完了時間15秒以内・満足度4.0以上`,
+  },
+  {
+   t: `step-done`,
+   sid: `reception`,
+  },
+  {
+   t: `pause`,
+   ms: 800,
+  },
+  {
+   t: `chip-active`,
+   sid: `concept`,
+  },
+  {
+   t: `claude`,
+   think: [`📂 past_tests.csv を参照中`, `📢 market_voice.csv を参照中`, `🧩 仮説を整理中`],
+   thinkMs: 2500,
+   m: `企画・コンセプトの妥当性確認を開始します。過去テスト・市場の声・ペルソナの3つを組み合わせて分析します。
+
+\`past_tests.csv\` を参照中…
+
+音声UIの完全一致はありませんでした。ただし2件が参考になります。
+
+**【参考①】TEST-2025-049 車内騒音環境下でのタッチパネル操作性評価**
+- 騒音設定値（市街地65dB・高速80dB）とタスク完了時間の計測手法が参考になります
+- 被験者から「音声操作への需要」が自発的に出ていたことも記録されています
+
+**【参考②】TEST-2025-068 インパネ情報レイアウト評価**
+- タスク設計・完了時間計測の構造が参考になります
+- 「情報量が多すぎる。音声で案内してほしい」という声が複数出ていました`,
+  },
+  {
+   t: `claude`,
+   m: `\`market_voice.csv\` を参照します。
+
+**課題として挙がっている声**
+- シニア層：「何度言っても聞き取ってくれない。結局タッチで操作した」
+- シニア層：「声が小さいと反応しない。大きな声で話すのが恥ずかしい」
+- 外国人：「日本語の発音が少し違うだけで全然認識されない」
+- 一般：「高速走行中はエンジン音がうるさくて認識しない」
+- 一般：「ナビの目的地入力が一番使いにくい。地名が通じない」
+
+**潜在ニーズ**
+- 若年層：「スマホの音声アシスタントと同じ感覚で使えた。慣れたら便利」
+- 一般：「走行中に手を離さなくていいのは安全で良い。音声操作に慣れたい」
+
+**市場トレンド：** 車載音声UI搭載率は3年で2倍になったが満足度は横ばい。60代以上の使用率は若年層の3分の1。`,
+  },
+  {
+   t: `claude`,
+   m: `過去テストの声と市場の声を合わせると、こういう仮説が立てられます。
+
+| 仮説 | 根拠 |
+|---|---|
+| 音声UIへの潜在ニーズは確実にある | 過去テスト被験者から自発的な要望・市場の安全性評価 |
+| 高齢層は認識精度より「使う心理的障壁」が問題 | 「恥ずかしい」「大声を出したくない」という声 |
+| 騒音環境での認識失敗が最大の離脱トリガー | 市場でも最多の不満。業界未解決課題 |
+| ナビ目的地入力が最も難易度の高いタスク | 市場で最多の不満タスクと一致 |`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：シニア層の離脱は想定通りだな。ただ「恥ずかしい」って声は正直知らなかった。認識精度の問題だけじゃないんだね。`,
+  },
+  {
+   t: `claude`,
+   m: `そこは重要な点です。認識精度が上がっても使ってもらえない可能性があります。今回のアンケートに「音声で話しかけることへの抵抗感」を確認する設問を入れることを後で提案します。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：わかった。じゃあこの仮説でシミュレーション走らせてみよう。`,
+  },
+  {
+   t: `claude`,
+   think: [`🗺️ シナリオ仮設計中`, `🏭 dils_master.csv を照合中`, `👥 personas.csv で25名を推論中`],
+   thinkMs: 2000,
+   m: `仮設計したシナリオです。
+
+| シーン | 走行条件 | 騒音 | 主タスク |
+|---|---|---|---|
+| A：市街地 | 30〜50km/h | 65dB | ナビ目的地設定 |
+| B：高速 | 80〜100km/h | 80dB | 電話発信・音楽変更 |
+
+\`dils_master.csv\` 照合結果：
+
+| DiLS | 音響 | VR | 実績 |
+|---|---|---|---|
+| DiLS-04 | ✅ | ✅ | 今回が初使用 |
+| DiLS-03 | ✅ | — | TEST-2025-049の実績あり |
+
+**第一候補：DiLS-04**（VR＋音響。走行中の認知状態の再現性が高い）`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：DiLS-04は初使用だけど、VRがあった方が確かにリアリティが出るよね。それで行こう。`,
+  },
+  {
+   t: `claude`,
+   think: [`👥 personas.csv で25名を推論中`, `🔗 DiLS-04 接続想定でシミュレーション実行中`, `📊 結果を集計中`],
+   thinkMs: 3500,
+   m: `DiLS-04・市街地65dB・高速80dBの条件で25名のペルソナを推論します。
+
+| ペルソナ | 市街地A | 高速B | リスク | 市場の声との対応 |
+|---|---|---|---|---|
+| P006（68歳・低リテラシー） | ❌ | ❌ | 声量不足・発話不慣れ | 「何度言っても聞き取れない」層 |
+| P021（71歳・シニア主婦） | ❌ | ❌ | 心理的抵抗・初体験 | 「大きな声が恥ずかしい」層 |
+| P009（26歳・中国人） | △ | ❌ | 日本語アクセント | 「発音が違うと認識されない」層 |
+| P012（29歳・トラックドライバー） | ✅ | ✅ | なし | ベースライン層 |
+| P003（35歳・IT系） | ✅ | ✅ | なし | 「慣れたら便利」層 |
+
+**25名中11名に高リスク。仮説と一致する傾向です。**
+
+DiLS-04に接続してシミュレーションを実行します。
+
+\`\`\`
+🔗 DiLS-04 接続中...
+⚙️  シーンA：市街地 40km/h / 65dB
+    シーンB：高速  100km/h / 80dB
+✅  環境設定完了
+\`\`\`
+
+▶ **P006（68歳）— シーンB 高速80dB**
+\`\`\`
+[00:11] 「渋谷まで案内して」→ 認識失敗（スコア0.29）
+[00:26] 「しぶや…」声量低下 → 認識失敗（スコア0.17）
+[00:40] 操作断念。タッチパネルに切替
+完了：未達成 / 予測満足度：1.9 / 5.0
+\`\`\`
+
+▶ **P021（71歳）— シーンA 市街地65dB**
+\`\`\`
+[00:15] 小声で「えっと…ナビ？」→ 認識失敗
+[00:28] 操作せず待機。「どう言えばいいかわからない」行動パターン
+完了：未達成 / 予測満足度：1.6 / 5.0
+\`\`\`
+
+▶ **P003（35歳・IT系）— シーンB 高速80dB**
+\`\`\`
+[00:07] 「渋谷まで案内して」→ 認識成功（スコア0.91）
+[00:13] 確認・承認完了
+完了：達成 / 完了時間：6.1秒 / 予測満足度：4.3 / 5.0
+\`\`\``,
+  },
+  {
+   t: `claude`,
+   m: `企画・コンセプトの妥当性確認が完了しました。結果をconcept_review.mdにまとめています。概要をご説明します。
+
+過去テスト・市場の声・シミュレーションを通じて仮説が一貫して確認されました。特にシニア層は認識精度の問題だけでなく「使う心理的障壁」という別の課題が存在することが浮かび上がっています。
+
+| | シーンA 市街地 | シーンB 高速 |
+|---|---|---|
+| 高リスク層（高齢・外国語ネイティブ） | 認識失敗・操作断念 | ほぼ使用不可 |
+| 低リスク層（テクノロジー慣れ） | 問題なし | 問題なし |
+
+実機テストの実施を推奨します。まず被験者について確認させてください。`,
+  },
+  {
+   t: `claude`,
+   m: `高齢者と外国語ネイティブで最も大きな課題が出ています。このあたりの確保の見通しはいかがですか？`,
+  },
+  {
+   t: `user`,
+   m: `高齢者はうちでリクルートできそうです。外国人はちょっと時間がかかるかも。`,
+  },
+  {
+   t: `claude`,
+   m: `外国語ネイティブが揃わない場合、アクセントによる誤認識の確認は今回できないことになります。それをどう扱うか、今の段階で方針を決めておいた方がよいかと思いますが、いかがでしょう？`,
+  },
+  {
+   t: `user`,
+   m: `海外展開は来年なので、今回は国内ユーザーで先に確認して、外国人は次フェーズでもいいかな。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：それは現実的だと思います。ただ報告書にはちゃんと「今回は未評価」と残しておきましょう。`,
+  },
+  {
+   t: `claude`,
+   m: `はい。スコープ外の理由と次フェーズへの申し送りとして報告書に明記します。
+
+次にシナリオについてです。市街地と高速の2シーンを提案していますが、今回特に確認しておきたい走行場面はありますか？`,
+  },
+  {
+   t: `user`,
+   m: `実際には高速でのナビ操作がよく使われるんです。高速は必ず入れたい。`,
+  },
+  {
+   t: `claude`,
+   m: `わかりました。ちなみに高速シーンは騒音80dBと負荷が高いので、高齢者被験者には疲労を考慮した実施順の調整が必要になります。試験計画に入れておきます。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：それはいいですね。他に気になるところはありますか？`,
+  },
+  {
+   t: `user`,
+   m: `シミュレーションでP009が市街地でも誤認識してましたよね。あれって認識エンジンの問題なんですかね、UIの設計の問題なんですかね。`,
+  },
+  {
+   t: `claude`,
+   m: `今の段階では切り分けができないです。アクセントへの認識エンジンの精度限界の可能性が高いですが、実機で実際のデータを取らないと確認できません。今回外国語ネイティブをスコープ外にするのであれば、その問いは持ち越しになります。次フェーズの課題として申し送りに残しておきましょうか。`,
+  },
+  {
+   t: `user`,
+   m: `そうしてください。`,
+  },
+  {
+   t: `claude`,
+   m: `ここまでの議論をふまえると、方針はこうなります。
+
+| 項目 | 決定内容 |
+|---|---|
+| 実施可否 | 実施する |
+| 被験者構成 | 高齢者（必須）・テクノロジー慣れ（必須）・低リテラシー（推奨） |
+| 外国語ネイティブ | 今回はスコープ外。次フェーズで実施 |
+| シナリオ | A（市街地）・B（高速）の2シーン |
+| 高齢者配慮 | 疲労を考慮したシーン実施順を試験計画に盛り込む |
+| 申し送り | 外国語ネイティブ未評価・アクセント問題は次フェーズ課題として明記 |`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：OKこの方針で行こう。依頼者と内容を詰めたいから、シナリオ・コンテンツ・計画案を作成して。`,
+  },
+  {
+   t: `claude`,
+   m: `わかりました。作成します。`,
+  },
+  {
+   t: `step-done`,
+   sid: `concept`,
+  },
+  {
+   t: `pause`,
+   ms: 800,
+  },
+  {
+   t: `chip-active`,
+   sid: `planning`,
+  },
+  {
+   t: `claude`,
+   think: [`📋 plan.md を生成中`, `🗺️ scenario.md を生成中`, `🏭 dils_selection.md を生成中`, `📅 スケジュールを逆算中`],
+   thinkMs: 3000,
+   m: `STEP2で確定した方針を引き継いで試験計画とシナリオを作成します。まず骨格を提示しますので、確認しながら詰めていきましょう。
+
+| 項目 | 内容 |
+|---|---|
+| 評価対象 | 車載音声UIアシスタント（新機能） |
+| 評価環境 | DiLS-04（VR・音響シミュレーション） |
+| 走行シナリオ | A：市街地65dB / B：高速80dB |
+| 評価タスク | ナビ目的地設定・電話発信・音楽変更 |
+| 合否基準 | 認識成功率80%以上・完了時間15秒以内・満足度4.0以上 |
+
+被験者数について確認させてください。現実的にどのくらい集められそうですか？`,
+  },
+  {
+   t: `user`,
+   m: `高齢者は5〜6名なら確保できそうです。テクノロジー慣れ層も5名くらいは出せます。低リテラシー層が一番難しいかな。`,
+  },
+  {
+   t: `claude`,
+   m: `それであれば以下の構成を提案します。
+
+| 被験者層 | 人数 | 理由 |
+|---|---|---|
+| 高齢者（60代以上） | 5名 | 最大リスク層 |
+| テクノロジー慣れ層（30〜40代） | 5名 | ベースライン |
+| 低リテラシー層（40〜50代） | 2〜3名 | 参考値として扱う |
+| **合計** | **12〜13名** | |`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：低リテラシー層が少ないと統計的に弱くなるよね？`,
+  },
+  {
+   t: `claude`,
+   m: `その通りです。2〜3名では統計的な結論は出せません。「傾向が見えた」「次フェーズで追加検証が必要」という材料にはなります。報告書でその前提を明記する形で扱いましょう。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：わかった。それで進めよう。`,
+  },
+  {
+   t: `claude`,
+   m: `セッション設計です。奇数番の被験者はA→B、偶数番はB→Aの順にすると順序効果が排除できます。
+
+| フェーズ | 内容 | 時間 |
+|---|---|---|
+| 導入 | DiLS-04の説明・練習タスク | 15分 |
+| シーン1回目 | 走行・タスク実行 | 15分 |
+| アンケート① | シーン1の評価 | 5分 |
+| シーン2回目 | 走行・タスク実行 | 15分 |
+| アンケート② | シーン2の評価 | 5分 |
+| 総合アンケート＋ヒアリング | 全体評価・自由記述 | 10分 |
+| **合計** | | **約65分** |
+
+高齢者は80分枠で設定することを推奨します。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：シナリオ間でアンケートを入れるのはいいね。まとめてやると混同するし。`,
+  },
+  {
+   t: `claude`,
+   m: `はい。trouble_knowhow.mdにも「シナリオ後にまとめてアンケートをすると被験者が混同する」という事例が残っていたので、シナリオごとに挟む形にしています。
+
+アンケートの設問を提案します。
+
+| 設問 | 評価軸 | 形式 |
+|---|---|---|
+| Q1：音声が正しく認識されましたか | 認識軸 | 5段階 |
+| Q2：操作を完了できましたか | 認識軸 | 5段階 |
+| Q3：アシスタントの応答内容はわかりやすかったですか | 理解軸 | 5段階 |
+| Q4：操作中にストレスを感じましたか | 総合 | 5段階 |
+| Q5：この機能を実際に使いたいと思いますか | 総合 | 5段階 |
+| Q6：音声で話しかけることへの抵抗感はありましたか | 心理的障壁 | 5段階 |
+| Q7：気になったことがあれば教えてください | — | 自由記述 |`,
+  },
+  {
+   t: `user`,
+   m: `Q1とQ2がちょっと似てる気がするんだけど、分ける必要ある？`,
+  },
+  {
+   t: `claude`,
+   m: `観点が少し違います。Q1は「認識されたかどうか」、Q2は「タスクが完了できたかどうか」です。認識は成功したけどルートが違う目的地に設定されたというケースがあり得るので、分けておくと原因の切り分けができます。ただ被験者の負荷を下げたいのであれば統合もできます。`,
+  },
+  {
+   t: `user`,
+   m: `なるほど、分けておきましょう。`,
+  },
+  {
+   t: `claude`,
+   m: `わかりました。確定内容をまとめます。
+
+| 項目 | 確定内容 |
+|---|---|
+| 被験者数・構成 | 高齢者5名・テクノロジー慣れ5名・低リテラシー2〜3名（計12〜13名） |
+| 実施順序 | 奇数番A→B・偶数番B→A |
+| 所要時間 | 一般65分・高齢者80分 |
+| アンケートタイミング | シーンごとに挟む |
+| DiLS-04事前確認 | 本番前に動作確認セッションを設ける |
+
+plan.md・scenario.md・dils_selection.mdを生成します。よいですか？`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：OK、作ってください。`,
+  },
+  {
+   t: `claude`,
+   m: `plan.md・scenario.md・dils_selection.mdを生成しました。
+内容を確認してください。問題なければ依頼者とスケジュールを詰めます。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者（依頼者へ）：先ほどの方針をもとに、シナリオ・コンテンツ・試験計画案を作成しました。概念・方向性はSTEP2で確認済みですので、今回はスケジュールと技術連携の部分を詰めたいです。音声UIシステムのDiLS-04への接続設定、開発側でどのくらいかかりそうですか？`,
+  },
+  {
+   t: `user`,
+   m: `API連携の仕様確認が必要なので、1〜2週間はみてほしいです。あと実験本番は6月末までにやってほしい逆算があって。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：6月末か。逆算するとコンテンツ準備は6月上旬には終わらせないといけないね。今からだとタイト。`,
+  },
+  {
+   t: `claude`,
+   m: `スケジュールを逆算するとこうなります。
+
+| 日程 | フェーズ |
+|---|---|
+| 〜6月6日 | コンテンツ準備・音声UI連携設定（2週間） |
+| 6月9日 | DiLS-04動作確認 |
+| 6月10日 | 予備実験（2名） |
+| 6月11〜13日 | 本実験（12〜13名） |
+| 6月14〜20日 | 分析・報告書作成 |
+| 6月末 | 報告書提出 |
+
+音声UI連携の設定が6月6日までに完了することが全体の前提になります。`,
+  },
+  {
+   t: `user`,
+   m: `なんとかします。開発チームに今日確認します。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：わかりました。ではシナリオと計画はこれで進めましょう。`,
+  },
+  {
+   t: `claude`,
+   m: `plan.md・scenario.md・dils_selection.mdを確定版として保存します。テスト実行ステップに進みます。`,
+  },
+  {
+   t: `step-done`,
+   sid: `planning`,
+  },
+  {
+   t: `pause`,
+   ms: 800,
+  },
+  {
+   t: `sys`,
+   m: `〜試験当日〜`,
+  },
+  {
+   t: `pause`,
+   ms: 500,
+  },
+  {
+   t: `chip-active`,
+   sid: `execution`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：準備が整いました。それではテストを開始します。`,
+  },
+  {
+   t: `claude`,
+   m: `開始します。参加者ごとのナビゲートガイドに沿って進めてください。`,
+  },
+  {
+   t: `claude`,
+   m: `【P001 ナビゲートガイド】
+
+▶ 乗り込み：「こちらのシートにお座りください。シートベルトをお締めください。」
+▶ 起動：「それでは起動します。少し揺れる感覚があります。」
+▶ シーンA 開始：「市街地の走行シーンです。走行が始まったら、音声で『渋谷まで案内して』と話しかけてみてください。うまくいかなくても大丈夫です。自然にやってみてください。」
+▶ シーンA 終了：「お疲れ様でした。こちらのアンケートにご記入ください。」
+▶ シーンB 開始：「次は高速道路のシーンです。『田中さんに電話して』と話しかけてみてください。」
+▶ シーンB 終了：「ありがとうございました。最後に全体のアンケートとヒアリングをさせてください。」`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：P001完了しました。`,
+  },
+  {
+   t: `claude`,
+   m: `P001 記録しました。認識成功率96%・平均完了時間7.2秒。良好です。P002に進みます。同じナビゲートガイドで進めてください。`,
+  },
+  {
+   t: `pause`,
+   ms: 600,
+  },
+  {
+   t: `claude`,
+   m: `P001〜P005 完了。認識成功率92%。順調です。
+1点お知らせします。P002のシーンBで認識スコアが基準をやや下回っています（0.63）。マイク位置を確認してください。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：確認・調整しました。`,
+  },
+  {
+   t: `claude`,
+   m: `P006（68歳・低リテラシー）に入ります。事前予測でリスクが高い参加者です。
+
+**P006向け補足ナビゲート**
+▶ 乗り込み前：「ゆっくりで大丈夫です。足元にご注意ください。」
+▶ 操作説明：「難しく考えなくて大丈夫です。普通に話しかけてみてください。うまくいかなくても全然問題ありません。うまくいかなかった体験も大切な情報です。」
+▶ 操作断念が起きた場合：「大丈夫ですよ。どんな感じでしたか？少し聞かせてください。」`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：P006完了。シーンBで操作を諦めていました。本人がかなり落ち込んでいたので、ヒアリングで丁寧に話を聞きました。`,
+  },
+  {
+   t: `claude`,
+   m: `記録しました。定性的に重要な知見が取れています。ヒアリング内容を観察メモに詳しく残してください。
+P007〜P013 に進みます。`,
+  },
+  {
+   t: `pause`,
+   ms: 700,
+  },
+  {
+   t: `claude`,
+   m: `全13名のテストが完了しました。
+
+| 指標 | 結果 |
+|---|---|
+| 全体の認識成功率 | 78%（基準80%をわずかに下回る） |
+| タスク完了時間（平均） | 市街地11.2秒 / 高速14.8秒 |
+| 操作断念件数 | 3名（P006・P013・P021） |
+| アンケート回収 | 12/13名 |
+
+データを \`execution_log.csv\` と \`questionnaire.csv\` に整理しました。結果報告書の作成に進んでよいですか？`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：お願いします。`,
+  },
+  {
+   t: `step-done`,
+   sid: `execution`,
+  },
+  {
+   t: `pause`,
+   ms: 800,
+  },
+  {
+   t: `chip-active`,
+   sid: `report`,
+  },
+  {
+   t: `claude`,
+   think: [`📊 questionnaire.csv を集計中`, `📚 past_tests.csv・market_voice.csv と照合中`, `🔍 シミュレーション予測との比較分析中`, `📝 report_draft.md を生成中`, `🗄️ 知見をDBに蓄積中`],
+   thinkMs: 4000,
+   m: `\`execution_log.csv\`・\`questionnaire.csv\` の分析を開始します。過去テストデータ・市場の声・STEP2の仮説と照合しながら報告書ドラフトを作成します。
+
+分析が完了しました。まずSTEP2で立てた検証3軸に対する結果です。
+
+| 検証軸 | 目標 | 結果 | 判定 |
+|---|---|---|---|
+| ナビ入力の認識精度（全体） | 成功率80%以上 | **78%** | ❌ わずかに未達 |
+| 高齢層の操作成功率 | 成功率80%以上 | **31%** | ❌ 大きく未達 |
+| 騒音環境（高速80dB）での認識 | 完了時間15秒以内 | **14.8秒** | ✅ 達成 |
+
+全体的にはシミュレーションの予測と概ね一致しています。
+ただ1点、シミュレーションでは予測しきれなかった発見があります。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：なんですか？`,
+  },
+  {
+   t: `claude`,
+   m: `高齢層の失敗は認識精度の問題だけでなく、「大きな声で話しかけること自体への抵抗感」が操作断念の主因になっていたことが定性データから確認されました。
+
+P006・P021のヒアリングでは「失敗したことへの自己効力感の低下」も見られています。STEP2で仮説として立てていた点ですが、実際に出てきた言葉の重さは想定以上でした。
+
+この観点は報告書の「考察」に独立した項目として入れることを推奨します。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：それは確かに大事だね。しっかり書いておいて。`,
+  },
+  {
+   t: `claude`,
+   m: `承知しました。報告書の結論はこう記載しています。
+
+「音声UIの改善効果はテクノロジー慣れ層において明確に確認された。一方で高齢層では認識精度の向上だけでは解決できない心理的障壁が存在することが判明した。全体の認識成功率78%は目標をわずかに下回ったが、これは高齢層の低成功率（31%）が全体を引き下げていることが主因であり、改善の方向性は明確である。」
+
+いかがですか？`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：いいですね。依頼者に送りましょう。`,
+  },
+  {
+   t: `claude`,
+   m: `\`report_draft.md\` を \`output/reports/EXP-003_report_draft.md\` に保存しました。`,
+  },
+  {
+   t: `user`,
+   m: `ありがとうございます。高齢層の心理的抵抗感は想定外でした。次のフェーズで改善策を検討したいです。外国語ネイティブの評価も含めて、また相談させてください。`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：ありがとうございました。次フェーズの準備ができたらまた声かけてください。`,
+  },
+  {
+   t: `claude`,
+   m: `今回のテストと依頼者とのやり取りから、蓄積しておくべき知見があります。確認してください。
+
+| 種別 | 内容 | 追加先 |
+|---|---|---|
+| 新しい市場の声 | 「高齢層は認識精度より心理的抵抗感が課題。失敗体験が自己効力感を下げる」 | market_voice.csv |
+| 過去テストの知見 | EXP-003：高齢層31%・テクノロジー慣れ層94%。層間格差が顕著 | past_tests.csv |
+| 過去トラ追加 | 「操作失敗後のヒアリングは参加者の精神状態に配慮が必要。落ち着かせる声かけを入れる」 | trouble_knowhow.md |
+
+DBに反映してよいですか？`,
+  },
+  {
+   t: `sys`,
+   m: `運営者：はい、お願いします。`,
+  },
+  {
+   t: `claude`,
+   m: `反映しました。次のテスト依頼が来たとき、今回の知見が参照されます。`,
+  },
+  {
+   t: `step-done`,
+   sid: `report`,
+  },
+  {
+   t: `pause`,
+   ms: 600,
+  },
+  {
+   t: `sys`,
+   m: `✅ デモ完了 — EXP-003 全5ステップが正常に終了しました`,
+  }
+];
+
+/* ═══════════════════════════════════════
+   RUNNER
+═══════════════════════════════════════ */
+async function runDemo() {
+  demoRunning=true;demoTs=Date.now();abortFlag=false;
+
+  const startIdx = resumeFromIdx;
+  resumeFromIdx = 0;
+
+  if (startIdx === 0) {
+    // 最初から：チャット・ダッシュボードをリセット
+    chatEl.innerHTML='';
+    buildDashboard();
+  } else {
+    // STEPジャンプから再生：ダッシュボードは完了状態のまま
+    // チャットをそのSTEP冒頭まで表示し直す（前のステップの対話のみ）
+    renderChatUpTo(startIdx - 1);
+  }
+
+  stepInd.textContent='STEP —';
+  tlFill.style.width='0%';tlThumb.style.left='0%';
+  startTl();
+
+  for(let i=startIdx;i<SCRIPT.length;i++){
+    if(abortFlag) break;
+    const f=SCRIPT[i];
+    if(f.t==='sys'){addSys(f.m);await sleep(350);}
+    else if(f.t==='user'){await sleep(300);await streamMsg('user',f.m);await sleep(200);}
+    else if(f.t==='claude'){await streamMsg('claude',f.m,f.think,f.thinkMs);await sleep(300);}
+    else if(f.t==='chip-active'){setChipActiveNow(f.sid);addStepBanner(f.sid);await sleep(150);}
+    else if(f.t==='step-done'){completeStep(f.sid,getStepContent(f.sid));await sleep(700);}
+    else if(f.t==='pause'){await sleep(f.ms);}
+  }
+
+  stopTl();
+  if(!abortFlag){tlFill.style.width='100%';tlThumb.style.left='100%';timeInd.textContent=ft(TOTAL)+' / '+ft(TOTAL);}
+  demoRunning=false;
+  document.getElementById('play-icon').textContent='▶';
+  document.getElementById('play-btn').classList.remove('pb-on');
+}
+
+/* ═══════════════════════════════════════
+   CONTROLS
+═══════════════════════════════════════ */
+function startFresh(){
+  abortFlag=true;paused=false;
+  if(pauseRes){pauseRes();pauseRes=null;}
+  stopTl();
+  setTimeout(()=>{
+    abortFlag=false;paused=false;
+    document.getElementById('play-icon').textContent='⏸';
+    document.getElementById('play-btn').classList.add('pb-on');
+    runDemo();
+  },200);
+}
+
+document.getElementById('play-btn').addEventListener('click',()=>{
+  if(!demoRunning){
+    if(resumeFromIdx > 0) {
+      // ジャンプ後の再生：チャット・ダッシュボードはそのままで続きを再生
+      abortFlag=false;paused=false;demoRunning=true;demoTs=Date.now();
+      document.getElementById('play-icon').textContent='⏸';
+      document.getElementById('play-btn').classList.add('pb-on');
+      startTl();
+      runDemo();
+    } else {
+      startFresh();
+    }
+  }
+  else if(paused){
+    paused=false;document.getElementById('play-icon').textContent='⏸';
+    document.getElementById('play-btn').classList.add('pb-on');
+    startTl();if(pauseRes){pauseRes();pauseRes=null;}
+  } else {
+    paused=true;document.getElementById('play-icon').textContent='▶';
+    document.getElementById('play-btn').classList.remove('pb-on');stopTl();
+  }
+});
+document.getElementById('restart-btn').addEventListener('click',startFresh);
+document.getElementById('skip-btn').addEventListener('click',skipToEnd);
+function skipToEnd() {
+  abortFlag = true; paused = false;
+  if (pauseRes) { pauseRes(); pauseRes = null; }
+  stopTl();
+  setTimeout(() => {
+    abortFlag = false; demoRunning = false;
+    buildDashboard();
+    STEP_DEFS.forEach(d => {
+      completeStep(d.id, getStepContent(d.id));
+    });
+    // 全対話履歴をチャットに表示
+    renderChatUpTo(SCRIPT.length - 1);
+    // タイムライン
+    tlFill.style.width = '100%';
+    tlThumb.style.left = '100%';
+    timeInd.textContent = ft(TOTAL) + ' / ' + ft(TOTAL);
+    stepInd.textContent = 'STEP 5/5';
+    document.getElementById('play-icon').textContent = '▶';
+    document.getElementById('play-btn').classList.remove('pb-on');
+  }, 200);
+}
+
+document.querySelectorAll('.spd-b').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.spd-b').forEach(x=>x.classList.remove('spd-on'));
+    b.classList.add('spd-on');speed=parseFloat(b.dataset.spd);
+  });
+});
+
+
+/* ── Theme toggle ── */
+
+
+
+/* ── チャット履歴を即時レンダリング ── */
+
+/* ── ステップバナー ── */
+function addStepBanner(sid) {
+  const d = STEP_DEFS.find(x => x.id === sid);
+  if (!d) return;
+  const el = document.createElement('div');
+  el.className = 'step-banner';
+  el.id = 'banner-' + sid;
+  el.innerHTML = `<span class="banner-icon">${d.icon}</span><span>${d.label}</span><span class="banner-sub">STEP ${STEP_DEFS.indexOf(d)+1} / 5</span>`;
+  chatEl.appendChild(el);
+}
+
+function renderChatUpTo(endIdx) {
+  chatEl.innerHTML = '';
+  for (let i = 0; i <= endIdx && i < SCRIPT.length; i++) {
+    const f = SCRIPT[i];
+    if (f.t === 'chip-active') {
+      addStepBanner(f.sid);
+    } else if (f.t === 'sys') {
+      addSys(f.m);
+    } else if (f.t === 'user') {
+      const row = document.createElement('div');
+      row.className = 'msg-row-user';
+      const b = document.createElement('div');
+      b.className = 'bubble-user';
+      b.innerHTML = fmtChat(f.m);
+      row.appendChild(b);
+      chatEl.appendChild(row);
+    } else if (f.t === 'claude') {
+      const row = document.createElement('div');
+      row.className = 'msg-row-claude';
+      row.innerHTML = '<div class="av">AI</div><div class="bubble-claude"></div>';
+      chatEl.appendChild(row);
+      row.querySelector('.bubble-claude').innerHTML = fmtChat(f.m);
+    }
+  }
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+/* ── ステップ開始点にジャンプ ── */
+let resumeFromIdx = 0;
+
+function jumpToStep(sid) {
+  abortFlag = true; paused = false;
+  if (pauseRes) { pauseRes(); pauseRes = null; }
+  stopTl();
+
+  setTimeout(() => {
+    abortFlag = false; demoRunning = false;
+    buildDashboard();
+
+    const stepOrder = STEP_DEFS.map(d => d.id);
+    const targetIdx = stepOrder.indexOf(sid);
+
+    // 全5ステップを完了状態にする
+    stepOrder.forEach(stepId => {
+      completeStep(stepId, getStepContent(stepId));
+    });
+
+    // 対象ステップのchip-active位置を探す（ここから再生再開）
+    let chipIdx = 0;
+    for (let i = 0; i < SCRIPT.length; i++) {
+      if (SCRIPT[i].t === 'chip-active' && SCRIPT[i].sid === sid) {
+        chipIdx = i; break;
+      }
+    }
+    resumeFromIdx = chipIdx;
+
+    // チャット：全対話を表示（全完了状態）
+    renderChatUpTo(SCRIPT.length - 1);
+
+    // 対象STEPのバナーにスクロール
+    setTimeout(() => {
+      const banner = document.getElementById('banner-' + sid);
+      if (banner) banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+    // タイムライン：対象STEPの開始位置を示す
+    const pct = Math.round((chipIdx / (SCRIPT.length - 1)) * 100);
+    tlFill.style.width = pct + '%';
+    tlThumb.style.left = pct + '%';
+    const estTime = Math.floor((chipIdx / SCRIPT.length) * TOTAL);
+    timeInd.textContent = ft(estTime) + ' / ' + ft(TOTAL);
+    stepInd.textContent = 'STEP ' + (targetIdx + 1) + '/5';
+    document.getElementById('play-icon').textContent = '▶';
+    document.getElementById('play-btn').classList.remove('pb-on');
+  }, 200);
+}
+
+/* ── タイムラインにステップマーカーを追加 ── */
+function buildTimelineMarkers() {
+  const track = document.getElementById('tl-track');
+  track.querySelectorAll('.tl-marker').forEach(m => m.remove());
+
+  STEP_DEFS.forEach(d => {
+    let chipIdx = 0;
+    for (let i = 0; i < SCRIPT.length; i++) {
+      if (SCRIPT[i].t === 'chip-active' && SCRIPT[i].sid === d.id) {
+        chipIdx = i; break;
+      }
+    }
+    const pct = Math.round((chipIdx / (SCRIPT.length - 1)) * 100);
+    const marker = document.createElement('div');
+    marker.className = 'tl-marker';
+    marker.style.left = pct + '%';
+    const tip = document.createElement('div');
+    tip.className = 'tl-marker-tooltip';
+    tip.textContent = d.icon + ' ' + d.label + '  (ダブルクリック: ここから再生)';
+    marker.appendChild(tip);
+    // シングルクリック: ジャンプのみ
+    marker.addEventListener('click', () => jumpToStep(d.id));
+    // ダブルクリック: ジャンプ＋そのSTEPから再生
+    marker.addEventListener('dblclick', () => {
+      jumpToStep(d.id);
+      // jumpToStep内のsetTimeout(200ms)完了後に再生 → 450ms待機
+      setTimeout(() => {
+        if (!demoRunning) {
+          paused = false;
+          demoRunning = true; demoTs = Date.now();
+          document.getElementById('play-icon').textContent = '⏸';
+          document.getElementById('play-btn').classList.add('pb-on');
+          startTl();
+          runDemo();
+        }
+      }, 450);
+    });
+    track.appendChild(marker);
+  });
+}
+
+function switchView(view) {
+  const layout = document.querySelector('.st-layout');
+  const dfScreen = document.getElementById('dataflow-screen');
+  const btnDash = document.getElementById('btn-dashboard');
+  const btnDf = document.getElementById('btn-dataflow');
+
+  if (view === 'dataflow') {
+    layout.style.display = 'none';
+    dfScreen.innerHTML = buildDataflowView();
+    dfScreen.classList.add('visible');
+    btnDash.classList.remove('active');
+    btnDf.classList.add('active');
+  } else {
+    layout.style.display = 'flex';
+    dfScreen.classList.remove('visible');
+    btnDash.classList.add('active');
+    btnDf.classList.remove('active');
+  }
+}
+
+function toggleDataflow() {
+  const panel = document.getElementById('dataflow-panel');
+  const tabArea = document.getElementById('tab-content-area');
+  const btn = document.getElementById('df-toggle-btn');
+  const isActive = btn.classList.toggle('active');
+  if (isActive) {
+    panel.innerHTML = buildDataflowView();
+    panel.classList.add('visible');
+    tabArea.classList.remove('visible');
+    document.getElementById('progress-area').classList.add('tab-open');
+    STEP_DEFS.forEach(d => {
+      document.getElementById('tab-' + d.id).classList.remove('selected');
+    });
+  } else {
+    panel.classList.remove('visible');
+    document.getElementById('progress-area').classList.remove('tab-open');
+  }
+}
+
+function toggleTheme() {
+  const dp = document.getElementById('dash-panel');
+  const btn = document.getElementById('theme-toggle');
+  if (dp.classList.toggle('dark')) {
+    btn.textContent = '☀️';
+  } else {
+    btn.textContent = '🌙';
+  }
+}
+
+/* INIT */
+buildDashboard();
+chatEl.innerHTML='';
+addSys('▶ 下の再生ボタンを押してデモを開始してください');
+buildTimelineMarkers();
+tlFill.style.width='0%';tlThumb.style.left='0%';
+timeInd.textContent='0:00 / '+ft(TOTAL);
+stepInd.textContent='STEP —';
+</script>
+</body>
+</html>
