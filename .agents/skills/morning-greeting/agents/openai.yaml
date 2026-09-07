@@ -1,0 +1,4 @@
+interface:
+  display_name: "Morning Greeting"
+  short_description: "毎朝シンプルに「おはよう」と挨拶します"
+  default_prompt: "Use $morning-greeting to say good morning in Japanese."
